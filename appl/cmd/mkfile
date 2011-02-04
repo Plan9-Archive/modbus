@@ -1,0 +1,15 @@
+<../../mkconfig
+
+DIRS=\
+
+TARG=\
+	testmodbus.dis\
+
+SYSMODULES=\
+	arg.m\
+	draw.m\
+	sys.m\
+
+DISBIN=$ROOT/dis/modbus
+
+<$ROOT/mkfiles/mkdis

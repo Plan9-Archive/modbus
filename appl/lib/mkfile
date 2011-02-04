@@ -1,0 +1,13 @@
+<../../mkconfig
+
+TARG=\
+	modbus.dis\
+
+MODULES=\
+
+SYSMODULES=\
+	sys.m\
+
+DISBIN=$ROOT/dis/lib
+
+<$ROOT/mkfiles/mkdis

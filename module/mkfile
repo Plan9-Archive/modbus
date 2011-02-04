@@ -1,0 +1,6 @@
+<../mkconfig
+
+MODS=\
+	zaber.m\
+
+<mkmod

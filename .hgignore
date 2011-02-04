@@ -1,0 +1,17 @@
+(^|/)\.DS_Store($|)
+(^|/)logs($|)
+(^|/)tmp($|)
+\.dis$
+\.log$
+\.sbl$
+\.tiff$
+\.png$
+xcode/*$
+
+syntax: glob
+*.pbproj/*.pbxuser
+*.xcodeproj/*.mode*
+*.xcodeproj/*.pbxuser
+*.xcodeproj/*.perspectivev3
+*.pbxindex*
+

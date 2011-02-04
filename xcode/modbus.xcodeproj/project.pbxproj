@@ -1,0 +1,152 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXFileReference section */
+		41120B1C12F8C07300576FF7 /* mkconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = mkconfig; path = ../mkconfig; sourceTree = "<group>"; };
+		41120B1D12F8C07300576FF7 /* mkfile */ = {isa = PBXFileReference; explicitFileType = text; fileEncoding = 4; name = mkfile; path = ../mkfile; sourceTree = "<group>"; };
+		41120B1E12F8C07300576FF7 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = ../README.txt; sourceTree = "<group>"; };
+		41120B2212F8C1D900576FF7 /* module */ = {isa = PBXFileReference; lastKnownFileType = folder; name = module; path = ../module; sourceTree = "<group>"; };
+		41120B2412F8C2FC00576FF7 /* appl */ = {isa = PBXFileReference; lastKnownFileType = folder; name = appl; path = ../appl; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		41120B0812F8BF8200576FF7 = {
+			isa = PBXGroup;
+			children = (
+				41120B2412F8C2FC00576FF7 /* appl */,
+				41120B2212F8C1D900576FF7 /* module */,
+				41120B1C12F8C07300576FF7 /* mkconfig */,
+				41120B1D12F8C07300576FF7 /* mkfile */,
+				41120B1E12F8C07300576FF7 /* README.txt */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		41120B0F12F8BF8200576FF7 /* exactus */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 41120B1212F8BF8200576FF7 /* Build configuration list for PBXLegacyTarget "exactus" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/local/plan9/bin/mk;
+			buildWorkingDirectory = ..;
+			dependencies = (
+			);
+			name = exactus;
+			passBuildSettingsInEnvironment = 1;
+			productName = exactus;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		41120B0A12F8BF8200576FF7 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 41120B0D12F8BF8200576FF7 /* Build configuration list for PBXProject "modbus" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 41120B0812F8BF8200576FF7;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				41120B0F12F8BF8200576FF7 /* exactus */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		41120B1012F8BF8200576FF7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		41120B1112F8BF8200576FF7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		41120B1312F8BF8200576FF7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				ROOT = /usr/inferno;
+			};
+			name = Debug;
+		};
+		41120B1412F8BF8200576FF7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				ROOT = /usr/inferno;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		41120B0D12F8BF8200576FF7 /* Build configuration list for PBXProject "modbus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				41120B1012F8BF8200576FF7 /* Debug */,
+				41120B1112F8BF8200576FF7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		41120B1212F8BF8200576FF7 /* Build configuration list for PBXLegacyTarget "exactus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				41120B1312F8BF8200576FF7 /* Debug */,
+				41120B1412F8BF8200576FF7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 41120B0A12F8BF8200576FF7 /* Project object */;
+}
