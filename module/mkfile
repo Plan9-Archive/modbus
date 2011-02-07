@@ -1,6 +1,6 @@
 <../mkconfig
 
 MODS=\
-	zaber.m\
+	modbus.m\
 
 <mkmod

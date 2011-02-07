@@ -6,223 +6,227 @@ Modbus : module
 {
 	PATH:		con "/dis/lib/modbus.dis";
 
+	BIT8SZ:	con 1;
+	BIT16SZ:	con 2;
+
+	MBAPSZ:		con 7;
+	
 	MAXPDUSZ:	con 253;
+	MAXRTUADUSZ:	con BIT8SZ+MAXPDUSZ+BIT16SZ;
+	MAXTCPADUSZ:	con MAXPDUSZ+MBAPSZ;
 	
 	ModeRTU,
-	ModeASCII,
 	ModeTCP,
 	Maxmode:	con iota;
 	
-	# Function codes
-	Readcoils,				# 0x01
-	Readdiscrete,
-	Readholding,
-	Readinput,
-	Writecoil,
-	Writeregister,
-	Readexception,
-	Diagnostics:			con (1+iota);
-	CommEventCounter,		# 0x0B
-	CommEventLog:			con (16r0B+iota);
-	WriteCoils,				# 0x0F
-	WriteRegisters,
-	SlaveID:				con (16r0F+iota);
-	ReadFileRecord,			# 0x14
-	WriteFileRecord,
-	MaskWriteRegister,
-	RWRegisters,
-	ReadFIFO:				con (16r14+iota);
-	EncapsulateInterTransport:	con (16r2B);
-	Fmax:	con (16r2C);
+	# Function code types
+	Treadcoils,				# 0x01
+	Treaddiscreteinputs,
+	Treadholdingregisters,
+	Treadinputregisters,
+	Twritecoil,
+	Twriteregister,
+	Treadexception,
+	Tdiagnostics:			con (1+iota);
+	Tcommeventcounter,		# 0x0B
+	Tcommeventlog:			con (16r0B+iota);
+	Twritecoils,				# 0x0F
+	Twriteregisters,
+	Tslaveid:				con (16r0F+iota);
+	Treadfilerecord,			# 0x14
+	Twritefilerecord,
+	Tmaskwriteregister,
+	Trwregisters,
+	Treadfifo:				con (16r14+iota);
+	Tencapsulatedtransport,
+	Tmax:					con (16r2B+iota);
 	
 	# sub-function codes (Diagnostics)
-	ReadQueryData,			# 0x00
-	RestartCom,
-	DiagnosticRegister,
-	ChangeInputDelimiter,
-	ForceListenOnly:		con byte (iota);
-	Clear,					# 0x0A  Clear counters and diagnostic register
-	BusMessageCount,
-	BusCommErrCount,
-	BusExceptionErrCount,
-	SlaveMessageCount,
-	SlaveResponseCount,
-	SlaveNAKCount,
-	SlaveBusyCount,
-	BusOverrunCount:		con byte(16r0A+iota);
-	ClearOverrunCounter:	con byte(16r14);
+	TDreadquerydata,			# 0x00
+	TDrestartcom,
+	TDdiagnosticregister,
+	TDchangeinputdelimiter,
+	TDforcelistenonly:		con byte (iota);
+	TDclear,					# 0x0A  Clear counters and diagnostic register
+	TDbusmessagecount,
+	TDbuscommerrcount,
+	TDbusexceptionerrcount,
+	TDslavemessagecount,
+	TDslaveresponsecount,
+	TDslavenakcount,
+	TDslavebusycount,
+	TDbusoverruncount:		con byte(16r0A+iota);
+	TDclearoverruncounter:	con byte(16r14);
 	
 	# MEI Type Interface transport
-	CANopen:				con byte(16r0D);
-	DeviceID:				con byte(16r0E);
+	TMcanopen:				con byte(16r0D);
+	TMdeviceid:				con byte(16r0E);
 	
-	Code: adt {
-		code: int;
-		text: string;
-	};
-
-
-	Terror,		# not used
-	Rerror,
-	Treadcoils,
-	Rreadcoils,
-	Treaddiscreteinputs,
-	Rreaddiscreteinputs,
-	Treadholdingregisters,
-	Rreadholdingregisters,
-	Treadinputregisters,
-	Rreadinputregisters,
-	Twritecoil,
-	Rwritecoil,
-	Twriteregister,
-	Rwriteregister,
-	Treadexception,
-	Rreadexception,
-	Tdiagnostics,
-	Rdiagnostics,
-	Tcommeventcounter,
-	Rcommeventcounter,
-	Tcommeventlog,
-	Rcommeventlog,
-	Twritecoils,
-	Rwritecoils,
-	Twriteregisters,
-	Treadregisters,
-	Tslaveid,
-	Rslaveid,
-	Treadfilerecord,
-	Rreadfilerecord,
-	Twritefilerecord,
-	Rwritefilerecord,
-	Tmaskwriteregister,
-	Rmaskwriteregister,
-	Trdwrregisters,
-	Rrdwrregisters,
-	Treadfifo,
-	Rreadfifo,
-	Tencapsulatedinterface,
-	Rencapsulatedinterface,
-	Tmax:	con iota;
 	
-	Mmsg: adt {
-		tid: int;
+	TMmsg: adt {
+		fcode: int;
 		pick {
-		Treadcoils =>
-		Treaddiscreteinputs =>
-		Treadholdingregisters =>
-		Treadinputregisters =>
-			offset: int;		# 2 bytes
-			count:	int;		# 2 bytes
-		Twritecoil =>
-		Twriteregister =>
-			offset: int;		# 2 bytes
-			value:	int;		# 2 bytes
-		Tdiagnostics =>
-			subf:	int;		# 2 bytes
-			data:	int;		# 2 bytes
-		
-		Twritecoils =>
-		Twriteregisters =>
-			offset: int;		# 2 bytes
-			quantity: int;		# 2 bytes
-			count:	byte;		# N
-			value:	array of byte;
-
-		Rreadcoils =>
-		Rreaddiscreteinputs =>
-		Rreadholdingregisters =>
-		Rreadinputregisters =>
-			count:	byte;
-			status:	array of byte;
-		Rwritecoil =>
-		Rwriteregister =>
-		Rwritecoils =>
-		Rwriteregisters =>
-			offset:	int;		# 2 bytes
-			value:	int;		# 2 bytes
-		Rdiagnostics =>
-			subf:	int;
-			data:	int;
-				
-		Treadexception =>
-		Tcommeventcounter =>
-		Tcommeventlog =>
-		Tslaveid =>
-		Rerror =>
-			e:		string;
-			
-		Rreadexception =>
-			r:		byte;
-		Rcommeventcounter =>
-			status:	int;		# 2 bytes
-			ecount:	int;		# 2 bytes
-		
-		Rcommeventlog =>
-			count:	byte;
-			status:	int;		# 2 bytes
-			ecount:	int;		# 2 bytes
-			mcount:	int;		# 2 bytes
-			events:	array of byte;
-		
-		Rslaveid =>
-			count:	byte;
-			value:	array of byte;
-			status:	byte;
-			
-		Treadfilerecord =>
-		Twritefilerecord =>
-		Rwritefilerecord =>
-			count:	byte;
-			filenum:	int;	# 2 bytes
-			recnum:		int;	# 2 bytes
-			rlength:	int;	# 2 bytes
-			data:	array of byte;
-			
-		Rreadfilerecord =>
-			count:	byte;
-			rlength:	byte;
-			data:	array of byte;
-		
-		Tmaskwriteregister =>
-		Rmaskwriteregister =>
-			offset:	int;		# 2 bytes
-			andmask:	int;	# 2 bytes
-			ormask:	int;		# 2 bytes
-
-		Trdwrregisters =>
-			roffset:	int;
-			rcount:	int;
-			woffset:	int;
-			wcount:	int;
-			count:	byte;
-			data:	array of byte;
-		
-		Rrdwrregisters =>
-			count:	byte;
-			data:	array of byte;
-			
-		Treadfifo =>
-			offset:	int;
-		
-		Rreadfifo =>
-			count:	int;		# 2 bytes
-			fcount:	int;
-			data:	array of byte;
-			
-		Tencapsulatedinterface =>
-		Rencapsulatedinterface =>
+		Readerror =>
+			error: string;					# tag/fcode is unused in this case
+		Readcoils =>
+			offset:	int;					# 2	bytes, 0x0000 to 0xFFFF
+			quantity: int;					# 2 bytes, 0x0001 to 0x07D0
+		Readdiscreteinputs =>
+			offset: int;
+			quantity: int;
+		Readholdingregisters =>
+			offset: int;
+			quantity: int;					# 2 bytes, 0x0001 to 0x007D
+		Readinputregisters =>
+			offset: int;
+			quantity: int;					# 2 bytes, 0x0001 to 0x007D
+		Writecoil =>
+			offset: int;
+			value: int;						# 2 bytes 0x0000 or 0xFF00
+		Writeregister =>
+			offset: int;
+			value: int;						# 2 bytes 0x0000 to 0xFFFF
+		Readexception =>
+			s: string;						# not used
+		Diagnostics =>
+			subf: int;						# 2 bytes, sub-function type
+			data: int;						# 2 bytes
+		Commeventcounter =>
+			s: string;						# not used
+		Commeventlog =>
+			s: string;						# not used
+		Writecoils =>
+			offset: int;
+			quantity: int;
+			count: int;
+			data: array of byte;
+		Writeregisters =>
+			offset: int;
+			quantity: int;					# 2 bytes, 0x0001 to 0x007B
+			count:	int;					# 1 byte
+			data: array of byte;
+		Slaveid =>
+			s: string;						# not used
+		Readfilerecord =>
+			count: int;						# 1 byte, 0x07 to 0xF5
+			data: array of byte;
+		Writefilerecord =>
+			count: int;						# 1 byte, 0x09 to 0xFB
+			data: array of byte;
+		Maskwriteregister =>
+			offset: int;					# 2 bytes
+			andmask: int;					# 2 bytes
+			ormask: int;					# 2 bytes
+		Rwregisters =>
+			roffset: int;					# 2 bytes
+			rquantity: int;					# 2 bytes
+			woffset: int;					# 2 bytes
+			wquantity: int;					# 2 bytes
+			count:	int;					# 1 byte
+			data:	array of byte;			# 2 * count
+		Readfifo =>
+			offset: int;
+		Encapsulatedtransport =>
 			meitype: byte;
-			data:	array of byte;
+			data: array of byte;
 		}
 		
-		read:	fn(fd: ref Sys->FD): (ref Mmsg, string);
-		unpack:	fn(a: array of byte): (int, ref Mmsg);
-		pack:	fn(nil: self ref Mmsg): array of byte;
-		packedsize:	fn(nil: self ref Mmsg): int;
-		text:	fn(nil: self ref Mmsg): string;
+		read:	fn(fd: ref Sys->FD, msglim: int): ref TMmsg;
+		packedsize:	fn(nil: self ref TMmsg): int;
+		pack:	fn(nil: self ref TMmsg): array of byte;
+		unpack:	fn(a: array of byte): (int, ref TMmsg);
+		text:	fn(nil: self ref TMmsg): string;
+		mtype:	fn(nil: self ref TMmsg): int;
 	};
+
+	RMmsg: adt {
+		fcode: int;
+		pick {
+		Readerror =>
+			error: string;					# tag is unused in this case
+		Error =>
+			data: byte;
+		Readcoils =>
+			count: int;
+			data: array of byte;			# coil status
+		Readdiscreteinputs =>
+			count: int;
+			data: array of byte;			# inputs
+		Readholdingregisters =>
+			count: int;
+			data: array of byte;			# registers, N (of N/2 words)
+		Readinputregisters =>
+			count: int;
+			data: array of byte;			# input registers, N (of N/2 words)
+		Writecoil =>
+			offset: int;
+			value: int;
+		Writeregister =>
+			offset: int;
+			value: int;
+		Readexception =>
+			data: byte;
+		Diagnostics =>
+			subf: int;						# 2 bytes, sub-function type
+			data: int;
+		Commeventcounter =>
+			status: int;					# 2 bytes
+			count: int;						# 2 bytes
+		Commeventlog =>
+			count: int;						# 1 byte
+			status: int;					# 2 bytes
+			ecount: int;					# 2 bytes
+			mcount: int;					# 2 bytes
+			data: array of byte;			# events: (N-6) * byte
+		Writecoils =>
+			offset: int;
+			quantity: int;					# 2 bytes, 0x0001 to 0x07B0
+		Writeregisters =>
+			offset: int;
+			quantity: int;
+		Slaveid =>
+			count: int;
+			data: array of byte;			# device specific
+		Readfilerecord =>
+			count: int;						# 1 byte, 0x07 to 0xF5
+			data: array of byte;
+		Writefilerecord =>
+			count: int;
+			data: array of byte;
+		Maskwriteregister =>
+			offset: int;					# 2 bytes
+			andmask: int;					# 2 bytes
+			ormask: int;					# 2 bytes
+		Rwregisters =>
+			count: int;
+			data: array of byte;
+		Readfifo =>
+			count: int;						# 2 bytes
+			fcount: int;					# 2 bytes, ²31
+			data:	array of byte;
+		Encapsulatedtransport =>
+			meitype: byte;
+			data: array of byte;
+		}
 		
-	init:	fn();
+		read:	fn(fd: ref Sys->FD, msize: int): ref RMmsg;
+		packedsize:	fn(nil: self ref RMmsg): int;
+		pack:	fn(nil: self ref RMmsg): array of byte;
+		unpack:	fn(a: array of byte): (int, ref RMmsg);
+		text:	fn(nil: self ref RMmsg): string;
+		mtype:	fn(nil: self ref RMmsg): int;
+	};
 	
-	readmsg:	fn(fd: ref Sys->FD, msize: int): (array of byte, string);
+	Session: adt {
+		fd:	ref Sys->FD;
+		mode: int;
+		timeout: real;
+		
+		new:	fn(fd: ref Sys->FD): ref Session;
+		read:	fn(s: self ref Session, maxn: int): array of byte;
+		write:	fn(s: self ref Session, buf: array of byte): int;
+	};
+	
+	init:	fn();
+
 };
