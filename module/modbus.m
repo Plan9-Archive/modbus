@@ -216,17 +216,10 @@ Modbus : module
 		text:	fn(nil: self ref RMmsg): string;
 		mtype:	fn(nil: self ref RMmsg): int;
 	};
-	
-	Session: adt {
-		fd:	ref Sys->FD;
-		mode: int;
-		timeout: real;
 		
-		new:	fn(fd: ref Sys->FD): ref Session;
-		read:	fn(s: self ref Session, maxn: int): array of byte;
-		write:	fn(s: self ref Session, buf: array of byte): int;
-	};
-	
 	init:	fn();
-
+	
+	rtupack:	fn(addr: byte, pdu: array of byte): array of byte;
+	rtuunpack:	fn(data: array of byte): (byte, array of byte, int, string);
+	rtucrc:		fn(addr: byte, pdu: array of byte): int;
 };

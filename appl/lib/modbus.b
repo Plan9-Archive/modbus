@@ -1,16 +1,27 @@
 implement Modbus;
 
 include "sys.m";
+include "crc.m";
+
 include "modbus.m";
 
 sys: Sys;
+crc: Crc;
+	CRCstate: import crc;
 
 H: con BIT8SZ;		# minimum PDU header length: fcode[1]
 OFFSET: con BIT16SZ;
 
+POLY: con 16rA001;
+SEED: con 16rFFFF;
+
 init()
 {
-	sys = load Sys Sys->PATH;
+	if(sys == nil)
+		sys = load Sys Sys->PATH;
+	if(crc == nil) {
+		crc = load Crc Crc->PATH;
+	}
 }
 
 p16(a: array of byte, o: int, v: int): int
@@ -709,3 +720,44 @@ readmsg(fd: ref Sys->FD, msglim: int): (array of byte, string)
 	return (nil, sys->sprint("%r"));
 }
 
+rtupack(addr: byte, pdu: array of byte): array of byte
+{
+	n := BIT8SZ + len pdu + BIT16SZ;
+	c := rtucrc(addr, pdu);
+	atu := array[n] of byte;
+	atu[0] = addr;
+	atu[1:] = pdu;
+	atu[n-2] = byte(c >> 8);
+	atu[n-1] = byte(c);
+	return atu;
+}
+
+rtuunpack(data: array of byte): (byte, array of byte, int, string)
+{
+	e : string;
+	addr : byte;
+	pdu : array of byte;
+	c : int;
+	n := len data;
+	if(n >= 4) {
+		addr = data[0];
+		pdu = data[1:n-2];
+		c = (int data[n-2] << 8 | int data[n-1]);
+		if(c != rtucrc(addr, pdu))
+			e = "crc failed";
+	} else
+		e = "too short for an rtu packet";
+	return (addr, pdu, c, e);
+}
+
+rtucrc(addr: byte, pdu: array of byte): int
+{
+	crc_state: ref CRCstate;
+	crc_state = crc->init(POLY, SEED);
+	
+	n := len pdu + BIT8SZ;
+	b := array[n] of byte;
+	b[0] = addr;
+	b[1:] = pdu;
+	return crc->crc(crc_state, b, n);
+}
