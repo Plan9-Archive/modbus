@@ -10,36 +10,105 @@
 		41120B1C12F8C07300576FF7 /* mkconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = mkconfig; path = ../mkconfig; sourceTree = "<group>"; };
 		41120B1D12F8C07300576FF7 /* mkfile */ = {isa = PBXFileReference; explicitFileType = text; fileEncoding = 4; name = mkfile; path = ../mkfile; sourceTree = "<group>"; };
 		41120B1E12F8C07300576FF7 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = ../README.txt; sourceTree = "<group>"; };
-		41120B2212F8C1D900576FF7 /* module */ = {isa = PBXFileReference; lastKnownFileType = folder; name = module; path = ../module; sourceTree = "<group>"; };
-		41120B2412F8C2FC00576FF7 /* appl */ = {isa = PBXFileReference; lastKnownFileType = folder; name = appl; path = ../appl; sourceTree = "<group>"; };
+		411C4559133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
+		411C455A133026E600A1C6DE /* testmodbus.b */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; path = testmodbus.b; sourceTree = "<group>"; };
+		411C455C133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
+		411C455D133026E600A1C6DE /* modbus.b */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; path = modbus.b; sourceTree = "<group>"; };
+		411C4560133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
+		411C4563133026E600A1C6DE /* modbus */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = modbus; sourceTree = "<group>"; };
+		411C4564133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
+		411C4565133026E600A1C6DE /* mkman */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkman; sourceTree = "<group>"; };
+		411C4567133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
+		411C4568133026E600A1C6DE /* mkmod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkmod; sourceTree = "<group>"; };
+		411C4569133026E600A1C6DE /* modbus.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; path = modbus.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		41120B0812F8BF8200576FF7 = {
 			isa = PBXGroup;
 			children = (
-				41120B2412F8C2FC00576FF7 /* appl */,
-				41120B2212F8C1D900576FF7 /* module */,
+				411C4557133026E600A1C6DE /* appl */,
+				411C4561133026E600A1C6DE /* man */,
+				411C4566133026E600A1C6DE /* module */,
 				41120B1C12F8C07300576FF7 /* mkconfig */,
 				41120B1D12F8C07300576FF7 /* mkfile */,
 				41120B1E12F8C07300576FF7 /* README.txt */,
 			);
 			sourceTree = "<group>";
 		};
+		411C4557133026E600A1C6DE /* appl */ = {
+			isa = PBXGroup;
+			children = (
+				411C4558133026E600A1C6DE /* cmd */,
+				411C455B133026E600A1C6DE /* lib */,
+				411C4560133026E600A1C6DE /* mkfile */,
+			);
+			name = appl;
+			path = ../appl;
+			sourceTree = "<group>";
+		};
+		411C4558133026E600A1C6DE /* cmd */ = {
+			isa = PBXGroup;
+			children = (
+				411C4559133026E600A1C6DE /* mkfile */,
+				411C455A133026E600A1C6DE /* testmodbus.b */,
+			);
+			path = cmd;
+			sourceTree = "<group>";
+		};
+		411C455B133026E600A1C6DE /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				411C455C133026E600A1C6DE /* mkfile */,
+				411C455D133026E600A1C6DE /* modbus.b */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		411C4561133026E600A1C6DE /* man */ = {
+			isa = PBXGroup;
+			children = (
+				411C4562133026E600A1C6DE /* 2 */,
+				411C4564133026E600A1C6DE /* mkfile */,
+				411C4565133026E600A1C6DE /* mkman */,
+			);
+			name = man;
+			path = ../man;
+			sourceTree = "<group>";
+		};
+		411C4562133026E600A1C6DE /* 2 */ = {
+			isa = PBXGroup;
+			children = (
+				411C4563133026E600A1C6DE /* modbus */,
+			);
+			path = 2;
+			sourceTree = "<group>";
+		};
+		411C4566133026E600A1C6DE /* module */ = {
+			isa = PBXGroup;
+			children = (
+				411C4567133026E600A1C6DE /* mkfile */,
+				411C4568133026E600A1C6DE /* mkmod */,
+				411C4569133026E600A1C6DE /* modbus.m */,
+			);
+			name = module;
+			path = ../module;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXLegacyTarget section */
-		41120B0F12F8BF8200576FF7 /* exactus */ = {
+		41120B0F12F8BF8200576FF7 /* modbus */ = {
 			isa = PBXLegacyTarget;
 			buildArgumentsString = "$(ACTION)";
-			buildConfigurationList = 41120B1212F8BF8200576FF7 /* Build configuration list for PBXLegacyTarget "exactus" */;
+			buildConfigurationList = 41120B1212F8BF8200576FF7 /* Build configuration list for PBXLegacyTarget "modbus" */;
 			buildPhases = (
 			);
 			buildToolPath = /usr/local/plan9/bin/mk;
 			buildWorkingDirectory = ..;
 			dependencies = (
 			);
-			name = exactus;
+			name = modbus;
 			passBuildSettingsInEnvironment = 1;
 			productName = exactus;
 		};
@@ -59,7 +128,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				41120B0F12F8BF8200576FF7 /* exactus */,
+				41120B0F12F8BF8200576FF7 /* modbus */,
 			);
 		};
 /* End PBXProject section */
@@ -77,6 +146,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				ONLY_ACTIVE_ARCH = YES;
+				PATH = "$(PATH):/usr/local/bin:/usr/inferno/MacOSX/386/bin";
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -90,6 +160,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				PATH = "$(PATH):/usr/local/bin:/usr/inferno/MacOSX/386/bin";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -137,7 +208,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		41120B1212F8BF8200576FF7 /* Build configuration list for PBXLegacyTarget "exactus" */ = {
+		41120B1212F8BF8200576FF7 /* Build configuration list for PBXLegacyTarget "modbus" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				41120B1312F8BF8200576FF7 /* Debug */,

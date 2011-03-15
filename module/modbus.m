@@ -216,7 +216,7 @@ Modbus : module
 		text:	fn(nil: self ref RMmsg): string;
 		mtype:	fn(nil: self ref RMmsg): int;
 	};
-		
+	
 	init:	fn();
 	
 	rtupack:	fn(addr: byte, pdu: array of byte): array of byte;
