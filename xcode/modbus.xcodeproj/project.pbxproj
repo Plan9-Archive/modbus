@@ -11,7 +11,7 @@
 		41120B1D12F8C07300576FF7 /* mkfile */ = {isa = PBXFileReference; explicitFileType = text; fileEncoding = 4; name = mkfile; path = ../mkfile; sourceTree = "<group>"; };
 		41120B1E12F8C07300576FF7 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = ../README.txt; sourceTree = "<group>"; };
 		411C4559133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
-		411C455A133026E600A1C6DE /* testmodbus.b */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; path = testmodbus.b; sourceTree = "<group>"; };
+		411C455A133026E600A1C6DE /* testmodbus.b */ = {isa = PBXFileReference; explicitFileType = sourcecode.c; fileEncoding = 4; path = testmodbus.b; sourceTree = "<group>"; };
 		411C455C133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
 		411C455D133026E600A1C6DE /* modbus.b */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; path = modbus.b; sourceTree = "<group>"; };
 		411C4560133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
