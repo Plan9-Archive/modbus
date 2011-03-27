@@ -222,4 +222,5 @@ Modbus : module
 	rtupack:	fn(addr: byte, pdu: array of byte): array of byte;
 	rtuunpack:	fn(data: array of byte): (byte, array of byte, int, string);
 	rtucrc:		fn(addr: byte, pdu: array of byte): int;
+	rtucrc_test:		fn(addr: byte, pdu: array of byte): int;
 };

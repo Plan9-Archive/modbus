@@ -17,7 +17,7 @@ lock: Lock;
 str: String;
 
 modbus: Modbus;
-	RMmsg, TMmsg: import modbus;
+	RMmsg, TMmsg, rtupack, rtuunpack, rtucrc: import modbus;
 
 stdin, stdout, stderr: ref Sys->FD;
 
@@ -28,7 +28,7 @@ TestModbus: module {
 Port: adt
 {
 	mode:	int;
-
+	
 	local:	string;
 	ctl:	ref Sys->FD;
 	data:	ref Sys->FD;
@@ -40,6 +40,8 @@ Port: adt
 	avail:	array of byte;
 	pid:	int;
 
+	rtusilent:	int;
+
 	write:	fn(p: self ref Port, b: array of byte): int;
 };
 
@@ -48,6 +50,8 @@ Port.write(p: self ref Port, b: array of byte): int
 	r := 0;
 	if(b != nil && len b > 0) {
 		p.wrlock.obtain();
+		if(p.mode == Modbus->ModeRTU)
+			sys->sleep(p.rtusilent);
 		r = sys->write(p.data, b, len b);
 		p.wrlock.release();
 	}
@@ -75,13 +79,15 @@ init(nil: ref Draw->Context, argv: list of string)
 	modbus->init();
 	
 	path := "tcp!iolan!exactus";
-
+	skip := 0;
+	
 	arg := load Arg Arg->PATH;
 	arg->init(argv);
-	arg->setusage(arg->progname()+" [-d] [path]");
+	arg->setusage(arg->progname()+" [-d] [-s] [path]");
 	while((c := arg->opt()) != 0)
 		case c {
 		'd' =>	dflag++;
+		's' => skip++;
 		* =>	arg->usage();
 		}
 
@@ -89,7 +95,7 @@ init(nil: ref Draw->Context, argv: list of string)
 	if(argv != nil)
 		path = hd argv;
 
-	if(path != nil) {
+	if(path != nil && skip == 0) {
 		port = open(path);
 		if(port.ctl == nil || port.data == nil) {
 			sys->fprint(stderr, "Failed to connect to %s\n", port.local);
@@ -97,41 +103,96 @@ init(nil: ref Draw->Context, argv: list of string)
 		}
 	}
 
+	if(path == "tcp!iolan!exactus") {
+		exactus();
+	} else {
+		# TCP test
+		b := array[] of {
+			byte 16r00, byte 16r00, byte 16r00, byte 16r00, byte 16r00,
+			byte 16r06, byte 16r01, byte 16r01, byte 16r00, byte 16r00,
+			byte 16r00, byte 16r01
+		};
+		test(port, b);
+
+		b = array[] of {
+			byte 16r00, byte 16r00, byte 16r00, byte 16r00, byte 16r00,
+			byte 16r06, byte 16r01, byte 16r02, byte 16r00, byte 16r00,
+			byte 16r00, byte 16r01
+		};
+		test(port, b);
+	}
+
+	Hangup:= array[] of {byte "hangup"};
+	if(dflag) sys->fprint(stderr, "\nexiting...\n");
+	if(port != nil)
+		if(port.ctl != nil) {
+			sys->write(port.ctl, Hangup, len Hangup);
+			close(port);
+		}
+}
+
+test(p: ref Port, b: array of byte)
+{
+	if(p != nil) {
+		start := sys->millisec();
+		n := p.write(b);
+		stop := sys->millisec();
+		sys->fprint(stderr, "TX (%d, %d)-> %s\n", n, stop-start, hexdump(b));
+
+		r := readreply(p, 500);
+		if(r != nil)
+			sys->fprint(stderr, "reply: %s\n", hexdump(r.pack()));
+		else {
+			p.rdlock.obtain();
+			sys->fprint(stderr, "RX <- %s\n", hexdump(port.avail));
+			p.rdlock.release();
+		}
+	}
+}
+
+exactus()
+{
+	m : ref TMmsg;
 	b := array[] of {
 		byte 16r01, byte 16r03, byte 16r00, byte 16r00, byte 16r00, byte 16r02,
 		byte 16rc4, byte 16r0b
 		};
-	port.write(b);
-	sys->fprint(stderr, "TX -> %s\n", hexdump(b));
 	
-	r := readreply(port, 500);
-	if(r != nil)
-		sys->fprint(stderr, "reply: %s\n", hexdump(r.pack()));
+	addr := byte 16r01;
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 0, 16r0002);
+	pdu := b[1:len b - 2];
+	_pdu := m.pack();
+	rtu := rtupack(addr, m.pack());
 	
-	b = array[] of {
-		byte 16r02, byte 16r56, byte 16r56, byte 16r03
-	};
-	port.write(b);
-	sys->fprint(stderr, "TX -> %s\n", hexdump(b));
+	sys->fprint(stderr, "bytes: %s\n", hexdump(b));
+	sys->fprint(stderr, "  pdu: %s\n", hexdump(pdu));
+	sys->fprint(stderr, "  rtu: %s\n", hexdump(rtu));
+	sys->fprint(stderr, " _pdu: %s\n", hexdump(_pdu));
+	sys->fprint(stderr, " _pdu crc: %0X\n", modbus->rtucrc(addr, _pdu));
+	sys->fprint(stderr, " test: %04X\n", modbus->rtucrc_test(addr, m.pack()));
+	
+	sys->fprint(stderr, "\n");
+	sys->fprint(stderr, "time crc16: ");
+	start := sys->millisec();
+	for(i:=0; i<1000000; i++)
+		modbus->rtucrc(addr, _pdu);
+	stop := sys->millisec();
+	ms := real(stop - start)/1000000.0;
+	sys->fprint(stderr, "%g ms\n", ms);
 
-	r = readreply(port, 500);
-	if(r != nil)
-		sys->fprint(stderr, "reply: %s\n", hexdump(r.pack()));
-
-	port.rdlock.obtain();
-	sys->fprint(stderr, "RX <- %s\n", hexdump(port.avail));
-	port.rdlock.release();
-
-	Hangup:= array[] of {byte "hangup"};
-	if(dflag) sys->fprint(stderr, "\nexiting...\n");
-	if(port.ctl != nil)
-		sys->write(port.ctl, Hangup, len Hangup);
-
-	close(port);
+	sys->fprint(stderr, "time rtucrc_test: ");
+	start = sys->millisec();
+	for(i=0; i<1000000; i++)
+		modbus->rtucrc_test(addr, _pdu);
+	stop = sys->millisec();
+	ms = real(stop - start)/1000000.0;
+	sys->fprint(stderr, "%g ms\n", ms);
+	
+	test(port, rtu);
+	test(port, b);
+	b[0] = byte 16r00;
+	test(port, b);
 }
-
-
-
 
 open(path: string): ref Port
 {
@@ -141,6 +202,7 @@ open(path: string): ref Port
 	np.wrlock = Semaphore.new();
 	np.local = path;
 	np.pid = 0;
+	np.rtusilent = 2;		# 2 ms, much more than 3.5 char times
 
 	openport(np);
 	if(np.ctl != nil)
@@ -277,7 +339,6 @@ readreply(p: ref Port, ms: int): ref RMmsg
 
 	return r;
 }
-
 
 hexdump(b: array of byte): string
 {

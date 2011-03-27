@@ -12,8 +12,10 @@ crc: Crc;
 H: con BIT8SZ;		# minimum PDU header length: fcode[1]
 OFFSET: con BIT16SZ;
 
-POLY: con 16rA001;
-SEED: con 16rFFFF;
+POLY: con int 16rA001;
+SEED: con int 16r0001;
+
+crc_state: ref CRCstate;
 
 init()
 {
@@ -21,19 +23,62 @@ init()
 		sys = load Sys Sys->PATH;
 	if(crc == nil) {
 		crc = load Crc Crc->PATH;
+		crc_state = crc->init(POLY, SEED);
+	}
+#	tabs();
+}
+
+tabs() {
+	sys->print("crctab:");
+	i := 0;
+	while(i < len crc_state.crctab) {
+		if(i % 8 == 0)
+			sys->print("\n");
+		sys->print(" %02X", crc_state.crctab[i]);
+		i++;
+	}
+	sys->print("\n");
+
+	tab := array[256] of int;
+	for(i=0; i<256; i++) {
+		mcrc := 0;
+		c :=  i;
+		for(j:=0; j<8; j++) {
+			if((mcrc^c) & 1)
+				mcrc = (mcrc >> 1) ^ int 16rA001;
+			else
+				mcrc = mcrc >> 1;
+			c = c >> 1;
+		}
+		tab[i] = mcrc;
+	}
+	sys->print("modbus tab:");
+	i = 0;
+	while(i<len tab) {
+		if(i % 8 == 0)
+			sys->print("\n");
+		sys->print(" %02X", int tab[i]);
+		i++;
 	}
 }
 
 p16(a: array of byte, o: int, v: int): int
 {
-	a[o] = byte v;
-	a[o+1] = byte (v>>8);
+	a[o] = byte (v>>8);
+	a[o+1] = byte v;
 	return o+BIT16SZ;
 }
 
 g16(f: array of byte, i: int): int
 {
 	return ((int f[i+1]) << 8) | int f[i];
+}
+
+swap(word: int): int
+{
+	msb := word >> 8;
+	lsb := word % 256;
+	return (lsb<<8) + msb;
 }
 
 ttag2type := array[] of {
@@ -727,8 +772,8 @@ rtupack(addr: byte, pdu: array of byte): array of byte
 	atu := array[n] of byte;
 	atu[0] = addr;
 	atu[1:] = pdu;
-	atu[n-2] = byte(c >> 8);
-	atu[n-1] = byte(c);
+	atu[n-2] = byte(c);
+	atu[n-1] = byte(c >> 8);
 	return atu;
 }
 
@@ -752,12 +797,48 @@ rtuunpack(data: array of byte): (byte, array of byte, int, string)
 
 rtucrc(addr: byte, pdu: array of byte): int
 {
-	crc_state: ref CRCstate;
-	crc_state = crc->init(POLY, SEED);
+#	crc->reset(crc_state);
+	crc_state.crc = 16rFFFF;
 	
 	n := len pdu + BIT8SZ;
 	b := array[n] of byte;
 	b[0] = addr;
 	b[1:] = pdu;
-	return crc->crc(crc_state, b, n);
+	
+	return crc16(crc_state, b, n);
+}
+
+crc16(crcs : ref CRCstate, buf : array of byte, nb : int) : int
+{
+	n := nb;
+	if (n > len buf)
+		n = len buf;
+	crc := crcs.crc;
+	tab := crcs.crctab;
+	for (i := 0; i < n; i++) {
+		crc = (crc >> 8) ^ tab[int(byte crc ^ buf[i])];
+	}
+	crcs.crc = crc;
+	return crc;
+}
+
+rtucrc_test(addr: byte, pdu: array of byte): int
+{
+	data := array[len pdu + 1] of byte;
+	crc_ := 16rFFFF;
+	
+	data[0] = addr;
+	data[1:] = pdu[0:];
+	
+	for(i:=0; i<len data; i++) {
+		crc_ = crc_ ^ int data[i];
+		for(j:=0; j<8; j++) {
+			tmp := crc_ & 1;
+			crc_ = crc_ >> 1;
+			if(tmp)
+				crc_ = crc_ ^ 16rA001;
+		}
+	}
+	
+	return crc_;
 }
