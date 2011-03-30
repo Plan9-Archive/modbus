@@ -19,6 +19,8 @@ Modbus : module
 	ModeTCP,
 	Maxmode:	con iota;
 	
+	RTUCRC_ERROR:	con "CRC error";
+	
 	# Function code types
 	Treadcoils,				# 0x01
 	Treaddiscreteinputs,

@@ -440,7 +440,7 @@ RMmsg.read(fd: ref Sys->FD, msglim: int): ref RMmsg
 		return nil;
 	(nil, m) := RMmsg.unpack(msg);
 	if(m == nil)
-		return ref RMmsg.Readerror(0, "bad ModbusP R-message format");
+		return ref RMmsg.Readerror(0, "ModbusP RTU-message format error");
 	return m;
 }
 
@@ -787,9 +787,9 @@ rtuunpack(data: array of byte): (byte, array of byte, int, string)
 	if(n >= 4) {
 		addr = data[0];
 		pdu = data[1:n-2];
-		c = (int data[n-2] << 8 | int data[n-1]);
+		c = g16(data, n-2);
 		if(c != rtucrc(addr, pdu))
-			e = "crc failed";
+			e = RTUCRC_ERROR;
 	} else
 		e = "too short for an rtu packet";
 	return (addr, pdu, c, e);

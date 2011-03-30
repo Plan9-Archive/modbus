@@ -143,10 +143,12 @@ test(p: ref Port, b: array of byte)
 		stop := sys->millisec();
 		sys->fprint(stderr, "TX -> %s (%d, %d)\n", hexdump(b), n, stop-start);
 
-		r := readreply(p, 500);
-		if(r != nil)
+		(addr, r, crc, err) := readreply(p, 500);
+		if(r != nil) {
+			sys->fprint(stderr, "RMmsg (addr=%d, crc=%d err='%s'): %s\n",
+						int addr, crc, err, r.text());
 			sys->fprint(stderr, "reply: %s\n", hexdump(r.pack()));
-		else {
+		} else {
 			p.rdlock.obtain();
 			sys->fprint(stderr, "RX <- %s\n", hexdump(port.avail));
 			p.rdlock.release();
@@ -163,18 +165,7 @@ exactus()
 	
 	addr := byte 16r01;
 	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 0, 16r0002);
-	pdu := b[1:len b - 2];
-	_pdu := m.pack();
 	rtu := rtupack(addr, m.pack());
-	
-#	sys->fprint(stderr, "bytes: %s\n", hexdump(b));
-#	sys->fprint(stderr, "  pdu: %s\n", hexdump(pdu));
-#	sys->fprint(stderr, "  rtu: %s\n", hexdump(rtu));
-#	sys->fprint(stderr, " _pdu: %s\n", hexdump(_pdu));
-#	sys->fprint(stderr, " _pdu crc: %04X\n", modbus->rtucrc(addr, _pdu));
-#	sys->fprint(stderr, " test: %04X\n", modbus->rtucrc_test(addr, m.pack()));
-	
-#	timingtest(addr, _pdu);
 
 	test(port, b);
 	purge(port);
@@ -212,31 +203,6 @@ exactus()
 	rtu = rtupack(byte 1, m.pack());
 	test(port, rtu);
 	purge(port);
-	
-#	word := g16(rtu, len rtu - 2);
-#	word = swap(word);
-#	rtu[len rtu - 2] = byte (word);
-#	rtu[len rtu - 1] = byte (word>>8);
-#	test(port, rtu);
-}
-
-p16(a: array of byte, o: int, v: int): int
-{
-	a[o] = byte (v>>8);
-	a[o+1] = byte v;
-	return o+2;
-}
-
-g16(f: array of byte, i: int): int
-{
-	return ((int f[i+1]) << 8) | int f[i];
-}
-
-swap(word: int): int
-{
-	msb := word >> 8;
-	lsb := word % 256;
-	return (lsb<<8) + msb;
 }
 
 purge(p: ref Port)
@@ -348,42 +314,52 @@ close(p: ref Port): ref Sys->Connection
 	return c;
 }
 
-getreply(p: ref Port): ref RMmsg
+# returns (addr, ref RMmsg, crc, err)
+getreply(p: ref Port): (byte, ref RMmsg, int, string)
 {
-	if(p==nil)
-		return nil;
-
+	addr := byte 0;
+	pdu : array of byte;
+	crc : int;
+	err : string;
 	r: ref RMmsg;
+	
+	if(p==nil)
+		return (addr, r, crc, "No valid port");
+
 	p.rdlock.obtain();
-	if(len p.avail >= 5) {
-		(n, m) := RMmsg.unpack(p.avail[1:]);
-		if(n > 0 && len p.avail > n+3) {
-			(addr, pdu, crc, err) := modbus->rtuunpack(p.avail[0:n+3]);
-			if(err != nil) {
-				r = m;
-				p.avail = p.avail[(n+3):];
-			} else {
-				sys->fprint(stderr, "RX -> %s\n", hexdump(p.avail));
-				sys->fprint(stderr, "error: %s\n", err);
-				sys->fprint(stderr, "data: %d %s %d\n", int addr, hexdump(pdu), crc);
+	n := len p.avail;
+	if(n >= 4) {
+		(addr, pdu, crc, err) = modbus->rtuunpack(p.avail);
+		if(err == nil) {
+			(t, m) := RMmsg.unpack(pdu);
+			if(t > 0)
+				 r = m;
+			else {
+				sys->fprint(stderr, "RMmsg.unpack(): %d\n", t);
+				sys->fprint(stderr, "RX <- %s\n", hexdump(p.avail));
 			}
+			p.avail = p.avail[n:];
 		}
 	}
 	p.rdlock.release();
 
-	return r;
+	return (addr, r, crc, err);
 }
 
 # read until timeout or result is returned
-readreply(p: ref Port, ms: int): ref RMmsg
+readreply(p: ref Port, ms: int): (byte, ref RMmsg, int, string)
 {
+	addr := byte 0;
+	crc : int;
+	err : string;
+	r: ref RMmsg;
+
 	if(p == nil)
-		return nil;
+		return (byte 0, nil, 0, "No valid port");
 
 	limit := 60000;			# arbitrary maximum of 60s
-	r : ref RMmsg;
 	for(start := sys->millisec(); sys->millisec() <= start+ms;) {
-		r = getreply(p);
+		(addr, r, crc, err) = getreply(p);
 		if(r == nil) {
 			if(limit--) {
 				sys->sleep(1);
@@ -394,7 +370,7 @@ readreply(p: ref Port, ms: int): ref RMmsg
 			break;
 	}
 
-	return r;
+	return (addr, r, crc, err);
 }
 
 # testing
