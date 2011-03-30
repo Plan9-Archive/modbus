@@ -31,7 +31,8 @@ Port: adt
 	
 	local:	string;
 	ctl:	ref Sys->FD;
-	data:	ref Sys->FD;
+	rfd:	ref Sys->FD;
+	wfd:	ref Sys->FD;
 
 	rdlock: ref Lock->Semaphore;
 	wrlock:	ref Lock->Semaphore;
@@ -52,7 +53,7 @@ Port.write(p: self ref Port, b: array of byte): int
 		p.wrlock.obtain();
 		if(p.mode == Modbus->ModeRTU)
 			sys->sleep(p.rtusilent);
-		r = sys->write(p.data, b, len b);
+		r = sys->write(p.wfd, b, len b);
 		p.wrlock.release();
 	}
 	return r;
@@ -97,13 +98,16 @@ init(nil: ref Draw->Context, argv: list of string)
 
 	if(path != nil && skip == 0) {
 		port = open(path);
-		if(port.ctl == nil || port.data == nil) {
+		if(port.ctl == nil || port.rfd == nil) {
 			sys->fprint(stderr, "Failed to connect to %s\n", port.local);
 			exit;
 		}
 	}
 
-	if(path == "tcp!iolan!exactus") {
+#	if(path == "tcp!iolan!exactus") {
+	if(path != nil) {
+		sys->sleep(125);
+		purge(port);
 		exactus();
 	} else {
 		# TCP test
@@ -137,7 +141,7 @@ test(p: ref Port, b: array of byte)
 		start := sys->millisec();
 		n := p.write(b);
 		stop := sys->millisec();
-		sys->fprint(stderr, "TX (%d, %d)-> %s\n", n, stop-start, hexdump(b));
+		sys->fprint(stderr, "TX -> %s (%d, %d)\n", hexdump(b), n, stop-start);
 
 		r := readreply(p, 500);
 		if(r != nil)
@@ -154,9 +158,8 @@ exactus()
 {
 	m : ref TMmsg;
 	b := array[] of {
-		byte 16r01, byte 16r03, byte 16r00, byte 16r00, byte 16r00, byte 16r02,
-		byte 16rc4, byte 16r0b
-		};
+		byte 16r02, byte 16r4d, byte 16r4d, byte 16r03,
+	};
 	
 	addr := byte 16r01;
 	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 0, 16r0002);
@@ -164,34 +167,83 @@ exactus()
 	_pdu := m.pack();
 	rtu := rtupack(addr, m.pack());
 	
-	sys->fprint(stderr, "bytes: %s\n", hexdump(b));
-	sys->fprint(stderr, "  pdu: %s\n", hexdump(pdu));
-	sys->fprint(stderr, "  rtu: %s\n", hexdump(rtu));
-	sys->fprint(stderr, " _pdu: %s\n", hexdump(_pdu));
-	sys->fprint(stderr, " _pdu crc: %0X\n", modbus->rtucrc(addr, _pdu));
-	sys->fprint(stderr, " test: %04X\n", modbus->rtucrc_test(addr, m.pack()));
+#	sys->fprint(stderr, "bytes: %s\n", hexdump(b));
+#	sys->fprint(stderr, "  pdu: %s\n", hexdump(pdu));
+#	sys->fprint(stderr, "  rtu: %s\n", hexdump(rtu));
+#	sys->fprint(stderr, " _pdu: %s\n", hexdump(_pdu));
+#	sys->fprint(stderr, " _pdu crc: %04X\n", modbus->rtucrc(addr, _pdu));
+#	sys->fprint(stderr, " test: %04X\n", modbus->rtucrc_test(addr, m.pack()));
 	
-	sys->fprint(stderr, "\n");
-	sys->fprint(stderr, "time crc16: ");
-	start := sys->millisec();
-	for(i:=0; i<1000000; i++)
-		modbus->rtucrc(addr, _pdu);
-	stop := sys->millisec();
-	ms := real(stop - start)/1000000.0;
-	sys->fprint(stderr, "%g ms\n", ms);
+#	timingtest(addr, _pdu);
 
-	sys->fprint(stderr, "time rtucrc_test: ");
-	start = sys->millisec();
-	for(i=0; i<1000000; i++)
-		modbus->rtucrc_test(addr, _pdu);
-	stop = sys->millisec();
-	ms = real(stop - start)/1000000.0;
-	sys->fprint(stderr, "%g ms\n", ms);
-	
+	test(port, b);
+	purge(port);
+
 	test(port, rtu);
+	purge(port);
+	sys->sleep(30);
+	
+	b = array[] of {
+		byte 16r00, byte 16r03, byte 16r11, byte 16r00, byte 16r00, byte 16r31,
+		byte 16rff, byte 16r40
+	};
 	test(port, b);
-	b[0] = byte 16r00;
+	purge(port);
+
+	b = array[] of {
+		byte 16r00, byte 16r03, byte 16r00, byte 16r11, byte 16r31, byte 16r00,
+		byte 16rff, byte 16r40
+	};
 	test(port, b);
+	purge(port);
+	
+	b = array[] of {
+		byte 16r00, byte 16r03, byte 16r00, byte 16r11, byte 16r31, byte 16r00,
+		byte 16r40, byte 16rff
+	};
+	test(port, b);
+	purge(port);
+
+	b = b[0:len b - 2];
+	test(port, b);
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1100, 32);
+	rtu = rtupack(byte 1, m.pack());
+	test(port, rtu);
+	purge(port);
+	
+#	word := g16(rtu, len rtu - 2);
+#	word = swap(word);
+#	rtu[len rtu - 2] = byte (word);
+#	rtu[len rtu - 1] = byte (word>>8);
+#	test(port, rtu);
+}
+
+p16(a: array of byte, o: int, v: int): int
+{
+	a[o] = byte (v>>8);
+	a[o+1] = byte v;
+	return o+2;
+}
+
+g16(f: array of byte, i: int): int
+{
+	return ((int f[i+1]) << 8) | int f[i];
+}
+
+swap(word: int): int
+{
+	msb := word >> 8;
+	lsb := word % 256;
+	return (lsb<<8) + msb;
+}
+
+purge(p: ref Port)
+{
+	p.rdlock.obtain();
+	p.avail = array[0] of byte;
+	p.rdlock.release();
 }
 
 open(path: string): ref Port
@@ -202,7 +254,7 @@ open(path: string): ref Port
 	np.wrlock = Semaphore.new();
 	np.local = path;
 	np.pid = 0;
-	np.rtusilent = 2;		# 2 ms, much more than 3.5 char times
+	np.rtusilent = 5;		# 5 ms, more than 3.5 char times a byte at 115.2kb
 
 	openport(np);
 	if(np.ctl != nil)
@@ -219,7 +271,8 @@ openport(p: ref Port)
 		return;
 	}
 
-	p.data = nil;
+	p.rfd = nil;
+	p.wfd = nil;
 	p.ctl = nil;
 
 	if(p.local != nil) {
@@ -231,10 +284,12 @@ openport(p: ref Port)
 			}
 
 			p.ctl = sys->open(net.dir+"/ctl", Sys->ORDWR);
-			p.data = sys->open(net.dir+"/data", Sys->ORDWR);
+			p.rfd = sys->open(net.dir+"/data", Sys->OREAD);
+			p.wfd = sys->open(net.dir+"/data", Sys->OWRITE);
 		} else {
 			p.ctl = sys->open(p.local+"ctl", Sys->ORDWR);
-			p.data = sys->open(p.local, Sys->ORDWR);
+			p.rfd = sys->open(p.local, Sys->OREAD);
+			p.wfd = sys->open(p.local, Sys->OWRITE);
 		}
 	}
 
@@ -253,10 +308,9 @@ reading(p: ref Port)
 reader(p: ref Port, pidc: chan of int)
 {
 	pidc <-= sys->pctl(0, nil);
-
 	buf := array[1] of byte;
 	for(;;) {
-		while((n := sys->read(p.data, buf, len buf)) > 0) {
+		while((n := sys->read(p.rfd, buf, len buf)) > 0) {
 			p.rdlock.obtain();
 			if(len p.avail < Sys->ATOMICIO) {
 				na := array[len p.avail + n] of byte;
@@ -266,8 +320,10 @@ reader(p: ref Port, pidc: chan of int)
 			}
 			p.rdlock.release();
 		}
+		sys->fprint(stderr, "reader closed\n");
 		# error, try again
-		p.data = nil;
+		p.rfd = nil;
+		p.wfd = nil;
 		p.ctl = nil;
 		openport(p);
 	}
@@ -283,11 +339,12 @@ close(p: ref Port): ref Sys->Connection
 		kill(p.pid);
 		p.pid = 0;
 	}
-	if(p.data == nil)
+	if(p.rfd == nil)
 		return nil;
-	c := ref sys->Connection(p.data, p.ctl, nil);
+	c := ref sys->Connection(p.rfd, p.ctl, nil);
 	p.ctl = nil;
-	p.data = nil;
+	p.rfd = nil;
+	p.wfd = nil;
 	return c;
 }
 
@@ -338,6 +395,27 @@ readreply(p: ref Port, ms: int): ref RMmsg
 	}
 
 	return r;
+}
+
+# testing
+timingtest(addr: byte, pdu: array of byte)
+{
+	sys->fprint(stderr, "\n");
+	sys->fprint(stderr, "time crc16: ");
+	start := sys->millisec();
+	for(i:=0; i<1000000; i++)
+		modbus->rtucrc(addr, pdu);
+	stop := sys->millisec();
+	ms := real(stop - start)/1000000.0;
+	sys->fprint(stderr, "%g ms\n", ms);
+
+	sys->fprint(stderr, "time rtucrc_test: ");
+	start = sys->millisec();
+	for(i=0; i<1000000; i++)
+		modbus->rtucrc_test(addr, pdu);
+	stop = sys->millisec();
+	ms = real(stop - start)/1000000.0;
+	sys->fprint(stderr, "%g ms\n", ms);
 }
 
 hexdump(b: array of byte): string
