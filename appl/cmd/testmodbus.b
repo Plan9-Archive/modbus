@@ -116,14 +116,14 @@ init(nil: ref Draw->Context, argv: list of string)
 			byte 16r06, byte 16r01, byte 16r01, byte 16r00, byte 16r00,
 			byte 16r00, byte 16r01
 		};
-		test(port, b);
+		test(port, b, "tcp test");
 
 		b = array[] of {
 			byte 16r00, byte 16r00, byte 16r00, byte 16r00, byte 16r00,
 			byte 16r06, byte 16r01, byte 16r02, byte 16r00, byte 16r00,
 			byte 16r00, byte 16r01
 		};
-		test(port, b);
+		test(port, b, "tcp test");
 	}
 
 	Hangup:= array[] of {byte "hangup"};
@@ -135,22 +135,23 @@ init(nil: ref Draw->Context, argv: list of string)
 		}
 }
 
-test(p: ref Port, b: array of byte)
+test(p: ref Port, b: array of byte, s: string)
 {
 	if(p != nil) {
+		sys->fprint(stdout, "\nTest: %s\n", s);
 		start := sys->millisec();
 		n := p.write(b);
 		stop := sys->millisec();
-		sys->fprint(stderr, "TX -> %s (%d, %d)\n", hexdump(b), n, stop-start);
+		sys->fprint(stdout, "TX -> %s (%d, %d)\n", hexdump(b), n, stop-start);
 
 		(addr, r, crc, err) := readreply(p, 500);
 		if(r != nil) {
-			sys->fprint(stderr, "RMmsg (addr=%d, crc=%d err='%s'): %s\n",
+			sys->fprint(stdout, "RMmsg (addr=%d, crc=%d err='%s'): %s\n",
 						int addr, crc, err, r.text());
-			sys->fprint(stderr, "reply: %s\n", hexdump(r.pack()));
+			sys->fprint(stdout, "reply: %s\n", hexdump(r.pack()));
 		} else {
 			p.rdlock.obtain();
-			sys->fprint(stderr, "RX <- %s\n", hexdump(port.avail));
+			sys->fprint(stdout, "RX <- %s\n", hexdump(port.avail));
 			p.rdlock.release();
 		}
 	}
@@ -159,49 +160,93 @@ test(p: ref Port, b: array of byte)
 exactus()
 {
 	m : ref TMmsg;
+	addr := byte 16r01;
 	b := array[] of {
 		byte 16r02, byte 16r4d, byte 16r4d, byte 16r03,
 	};
-	
-	addr := byte 16r01;
-	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 0, 16r0002);
-	rtu := rtupack(addr, m.pack());
+	rtu : array of byte;
 
-	test(port, b);
-	purge(port);
-
-	test(port, rtu);
-	purge(port);
-	sys->sleep(30);
-	
-	b = array[] of {
-		byte 16r00, byte 16r03, byte 16r11, byte 16r00, byte 16r00, byte 16r31,
-		byte 16rff, byte 16r40
-	};
-	test(port, b);
-	purge(port);
-
-	b = array[] of {
-		byte 16r00, byte 16r03, byte 16r00, byte 16r11, byte 16r31, byte 16r00,
-		byte 16rff, byte 16r40
-	};
-	test(port, b);
+	test(port, b, "force modbus mode");
 	purge(port);
 	
-	b = array[] of {
-		byte 16r00, byte 16r03, byte 16r00, byte 16r11, byte 16r31, byte 16r00,
-		byte 16r40, byte 16rff
-	};
-	test(port, b);
+	m = ref TMmsg.Readcoils(Modbus->Treadcoils, 1, 32);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read coils");
+	purge(port);
+	
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r0000, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x0000) channel 1 temperature");
+	purge(port);
+	
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r0004, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x0004) channel 1 current");
 	purge(port);
 
-	b = b[0:len b - 2];
-	test(port, b);
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r0006, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x0006) channel 1 temperature");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r0012, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x0012) channel 1 current");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r0014, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x0014) channel 2 current -- dual channel models");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r0800, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x0800) chassis temperature");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1000, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1000) config register 1");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1001, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1001) config register 2");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1007, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1007) Modbus device address");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1008, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1008) Modbus baud rate");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1011, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1011) sampling rate");
 	purge(port);
 
 	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1100, 32);
 	rtu = rtupack(byte 1, m.pack());
-	test(port, rtu);
+	test(port, rtu, "read (0x1100) name string buffer");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1300, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1300) Software version");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1301, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1301) Software build");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r1305, 16r0009);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x1305) Serial number (9 ASCII bytes)");
 	purge(port);
 }
 
@@ -376,22 +421,22 @@ readreply(p: ref Port, ms: int): (byte, ref RMmsg, int, string)
 # testing
 timingtest(addr: byte, pdu: array of byte)
 {
-	sys->fprint(stderr, "\n");
-	sys->fprint(stderr, "time crc16: ");
+	sys->fprint(stdout, "\n");
+	sys->fprint(stdout, "time crc16: ");
 	start := sys->millisec();
 	for(i:=0; i<1000000; i++)
 		modbus->rtucrc(addr, pdu);
 	stop := sys->millisec();
 	ms := real(stop - start)/1000000.0;
-	sys->fprint(stderr, "%g ms\n", ms);
+	sys->fprint(stdout, "%g ms\n", ms);
 
-	sys->fprint(stderr, "time rtucrc_test: ");
+	sys->fprint(stdout, "time rtucrc_test: ");
 	start = sys->millisec();
 	for(i=0; i<1000000; i++)
 		modbus->rtucrc_test(addr, pdu);
 	stop = sys->millisec();
 	ms = real(stop - start)/1000000.0;
-	sys->fprint(stderr, "%g ms\n", ms);
+	sys->fprint(stdout, "%g ms\n", ms);
 }
 
 hexdump(b: array of byte): string

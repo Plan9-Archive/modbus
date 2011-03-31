@@ -16,6 +16,7 @@ Modbus : module
 	MAXTCPADUSZ:	con MAXPDUSZ+MBAPSZ;
 	
 	ModeRTU,
+	ModeASCII,
 	ModeTCP,
 	Maxmode:	con iota;
 	
