@@ -142,13 +142,15 @@ test(p: ref Port, b: array of byte, s: string)
 		start := sys->millisec();
 		n := p.write(b);
 		stop := sys->millisec();
-		sys->fprint(stdout, "TX -> %s (%d, %d)\n", hexdump(b), n, stop-start);
+		sys->fprint(stdout, "TX -> %s\t(%d, %d)\n", hexdump(b), n, stop-start);
 
 		(addr, r, crc, err) := readreply(p, 500);
 		if(r != nil) {
 			sys->fprint(stdout, "RMmsg (addr=%d, crc=%d err='%s'): %s\n",
 						int addr, crc, err, r.text());
-			sys->fprint(stdout, "reply: %s\n", hexdump(r.pack()));
+			buf := r.pack();
+			sys->fprint(stdout, "reply: %s\n", hexdump(buf[0:2]));
+			sys->fprint(stdout, "%s\n", hexdump(buf[2:]));
 		} else {
 			p.rdlock.obtain();
 			sys->fprint(stdout, "RX <- %s\n", hexdump(port.avail));
@@ -442,9 +444,13 @@ timingtest(addr: byte, pdu: array of byte)
 hexdump(b: array of byte): string
 {
 	s := "";
-	for(i:=0; i<len b; i++)
+	for(i:=0; i<len b; i++) {
+		if(i%8 == 0)
+			s = s + "\n\t";
 		s = sys->sprint("%s %02X", s, int(b[i]));
-	return s;
+	}
+	
+	return str->drop(s, "\n");
 }
 
 kill(pid: int)
