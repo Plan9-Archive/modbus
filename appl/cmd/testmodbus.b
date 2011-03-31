@@ -250,6 +250,116 @@ exactus()
 	rtu = rtupack(addr, m.pack());
 	test(port, rtu, "read (0x1305) Serial number (9 ASCII bytes)");
 	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r2004, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x2004) Channel 1 Calibration Factor");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r2006, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x2006) Channel 1 Transmission Factor");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r2008, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x2008) Channel 1 Current Offset");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3000, 16r000F);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3000) Emissivity Table X Entries 0-7");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3010, 16r000F);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3010) Emissivity Table Y Entries 0-7");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3020, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3020) Emissivity Table Size");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3030, 16r000F);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3030) Fit Table X Entries 0-7");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3040, 16r000F);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3040) Fit Table Y Entries 0-7");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3050, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3050) Fit Table Size");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3060, 16r000F);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3060) Avg/BW Table X Entries 0-7");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3070, 16r000F);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3070) Avg/BW Table Y Entries 0-7");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3080, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3080) Average Table Size");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3100, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3100) Voltage Mode Min. Volts");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3102, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3102) Voltage Mode Max. Volts");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3104, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3104) Voltage Mode Min. Temp.");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3106, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3106) Voltage Mode Max. Temp.");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3110, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3110) Current Mode Min. Current");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3112, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3112) Current Mode Max. Current");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3114, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3114) Current Mode Min. Temp.");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r3116, 16r0002);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x3116) Current Mode Max. Temp.");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r8000, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x8000) Command Register");
+	purge(port);
+
+	m = ref TMmsg.Readholdingregisters(Modbus->Treadholdingregisters, 16r8003, 16r0001);
+	rtu = rtupack(addr, m.pack());
+	test(port, rtu, "read (0x8003) Manual Range Register");
+	purge(port);
 }
 
 purge(p: ref Port)
