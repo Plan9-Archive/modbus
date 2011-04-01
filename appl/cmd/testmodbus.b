@@ -486,8 +486,8 @@ getreply(p: ref Port): (byte, ref RMmsg, int, string)
 	p.rdlock.obtain();
 	n := len p.avail;
 	if(n >= 4) {
-		(addr, pdu, crc, err) = modbus->rtuunpack(p.avail);
-		if(err == nil) {
+		(addr, pdu, crc, n, err) = modbus->rtuunpack(p.avail);
+		if(err == nil && n > 0) {
 			(t, m) := RMmsg.unpack(pdu);
 			if(t > 0)
 				 r = m;
@@ -496,6 +496,9 @@ getreply(p: ref Port): (byte, ref RMmsg, int, string)
 				sys->fprint(stderr, "RX <- %s\n", hexdump(p.avail));
 			}
 			p.avail = p.avail[n:];
+		} else if(err == Modbus->ERR_RTUCRC) {
+			if(n > 0)
+				p.avail = p.avail[n:];
 		}
 	}
 	p.rdlock.release();

@@ -1,8 +1,8 @@
 <../mkconfig
 
 DIRS=\
-	cmd\
 	lib\
+	cmd\
 
 <$ROOT/mkfiles/mksubdirs
 

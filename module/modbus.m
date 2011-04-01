@@ -20,7 +20,8 @@ Modbus : module
 	ModeTCP,
 	Maxmode:	con iota;
 	
-	RTUCRC_ERROR:	con "CRC error";
+	ERR_RTUCRC:	con "CRC error";
+	ERR_RTUINCOMPLETE:	con "RTU incomlete";
 	
 	# Function code types
 	Treadcoils,				# 0x01
@@ -223,7 +224,7 @@ Modbus : module
 	init:	fn();
 	
 	rtupack:	fn(addr: byte, pdu: array of byte): array of byte;
-	rtuunpack:	fn(data: array of byte): (byte, array of byte, int, string);
+	rtuunpack:	fn(data: array of byte): (byte, array of byte, int, int, string);
 	rtucrc:		fn(addr: byte, pdu: array of byte): int;
 	rtucrc_test:		fn(addr: byte, pdu: array of byte): int;
 };

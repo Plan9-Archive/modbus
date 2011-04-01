@@ -777,27 +777,42 @@ rtupack(addr: byte, pdu: array of byte): array of byte
 	return atu;
 }
 
-rtuunpack(data: array of byte): (byte, array of byte, int, string)
+rtuunpack(data: array of byte): (byte, array of byte, int, int, string)
 {
 	e : string;
 	addr : byte;
 	pdu : array of byte;
 	c : int;
 	n := len data;
-	if(n >= 4) {
+	if(n > 4) {
 		addr = data[0];
-		pdu = data[1:n-2];
-		c = g16(data, n-2);
-		if(c != rtucrc(addr, pdu))
-			e = RTUCRC_ERROR;
+		f := int data[1];
+		if(f > 16r80) {		# Modbus error
+			pdu = data[1:3];
+			c = g16(data, 4);
+			if(c != rtucrc(addr, pdu))
+				e = ERR_RTUCRC;
+			n = 5;
+		} else {
+			l := int data[2];
+			if(l+5 > n) {
+				e = ERR_RTUINCOMPLETE;
+				n = 0;
+			} else {
+				pdu = data[1:l+3];
+				c = g16(data, l+3);
+				if(c != rtucrc(addr, pdu))
+					e = ERR_RTUCRC;
+				n = l+5;
+			}
+		}
 	} else
-		e = "too short for an rtu packet";
-	return (addr, pdu, c, e);
+		e = ERR_RTUINCOMPLETE;
+	return (addr, pdu, c, n, e);
 }
 
 rtucrc(addr: byte, pdu: array of byte): int
 {
-#	crc->reset(crc_state);
 	crc_state.crc = 16rFFFF;
 	
 	n := len pdu + BIT8SZ;
@@ -813,13 +828,13 @@ crc16(crcs : ref CRCstate, buf : array of byte, nb : int) : int
 	n := nb;
 	if (n > len buf)
 		n = len buf;
-	crc := crcs.crc;
+	c := crcs.crc;
 	tab := crcs.crctab;
 	for (i := 0; i < n; i++) {
-		crc = (crc >> 8) ^ tab[int(byte crc ^ buf[i])];
+		c = (c >> 8) ^ tab[int(byte c ^ buf[i])];
 	}
-	crcs.crc = crc;
-	return crc;
+	crcs.crc = c;
+	return c;
 }
 
 rtucrc_test(addr: byte, pdu: array of byte): int
