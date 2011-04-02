@@ -1,6 +1,6 @@
 # Modbus protocol
 #
-# Copyright (C) 2011, Corpus Callosum Corporation.  All Rights Reserverd.
+# Copyright (C) 2011, Corpus Callosum Corporation.  All Rights Reserved.
 
 Modbus : module
 {
