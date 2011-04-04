@@ -1050,18 +1050,6 @@ asciilrc(b: array of byte): int
 	return int r;
 }
 
-rtupack(addr: byte, pdu: array of byte): array of byte
-{
-	n := BIT8SZ + len pdu + BIT16SZ;
-	c := rtucrc(addr, pdu);
-	atu := array[n] of byte;
-	atu[0] = addr;
-	atu[1:] = pdu;
-	atu[n-2] = byte(c);
-	atu[n-1] = byte(c >> 8);
-	return atu;
-}
-
 rtuunpack(data: array of byte): (byte, array of byte, int, int, string)
 {
 	e : string;
