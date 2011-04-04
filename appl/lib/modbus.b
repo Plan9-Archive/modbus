@@ -1,19 +1,21 @@
 implement Modbus;
 
 include "sys.m";
+include "string.m";
 include "crc.m";
 
 include "modbus.m";
 
 sys: Sys;
+str: String;
 crc: Crc;
 	CRCstate: import crc;
 
-H: con BIT8SZ;		# minimum PDU header length: fcode[1]
-OFFSET: con BIT16SZ;
-
 POLY: con int 16rA001;
 SEED: con int 16r0001;
+
+CR:	con byte 16r0D;
+LF: con byte 16r0A;
 
 crc_state: ref CRCstate;
 
@@ -21,6 +23,8 @@ init()
 {
 	if(sys == nil)
 		sys = load Sys Sys->PATH;
+	if(str == nil)
+		str = load String String->PATH;
 	if(crc == nil) {
 		crc = load Crc Crc->PATH;
 		crc_state = crc->init(POLY, SEED);
@@ -81,6 +85,84 @@ swap(word: int): int
 	return (lsb<<8) + msb;
 }
 
+
+crackheader(b: array of byte): int
+{
+	if(b == nil || len b < 5)
+		return FrameUnknown;
+	
+	h := FrameUnknown;
+	# finish
+	return h;
+}
+
+# return address and new offset to next byte
+address(b: array of byte, f: int): (int, int)
+{
+	if(len b <= headersize(f))
+		return (-1, 0);
+	addr := -1;
+	o := 0;
+	case f {
+	FrameRTU =>
+		addr = int b[0];
+		o = 1;
+	FrameASCII =>
+		(addr, nil) = str->toint(string b[1:3], 16);
+		o = 3;
+	FrameTCP =>
+		addr = int b[6];
+		o = 6;
+	}
+	return (addr, o);
+}
+
+errorchecksize(f: int): int
+{
+	sz := 0;
+	case f {
+	FrameRTU => sz = BIT16SZ;
+	FrameASCII => sz = BIT16SZ+BIT16SZ;
+	}
+	return sz;
+}
+
+# return function type and offset to next byte
+functiontype(b: array of byte, h: int): (int, int)
+{
+	f := -1;
+	if(b == nil || len b < 5)
+		return (f, 0);
+	
+	o := 0;
+	case h {
+	FrameRTU =>
+		f = int b[1];
+		o = 1;
+	FrameASCII =>
+		(f, nil) = str->toint(string b[3:5], 16);
+		o = 5;
+	FrameTCP =>
+		if(len b > 7) {
+			f = int b[7];
+			o = 7;
+		}
+	}
+	
+	return (f, o);
+}
+
+headersize(f: int): int
+{
+	sz := 0;
+	case f {
+	FrameRTU => sz = BIT8SZ+BIT8SZ;						# Addres + Function Code
+	FrameASCII => sz = BIT8SZ+BIT16SZ+BIT16SZ;
+	FrameTCP => sz = BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ;
+	}
+	return sz;
+}
+
 ttag2type := array[] of {
 tagof TMmsg.Readerror => 0,
 tagof TMmsg.Readcoils => Treadcoils,
@@ -113,12 +195,12 @@ TMmsg.read(fd: ref Sys->FD, msglim: int): ref TMmsg
 {
 	(msg, err) := readmsg(fd, msglim);
 	if(err != nil)
-		return ref TMmsg.Readerror(0, err);
+		return ref TMmsg.Readerror(FrameError, -1, -1, err);
 	if(msg == nil)
 		return nil;
-	(nil, m) := TMmsg.unpack(msg);
+	(nil, m) := TMmsg.unpack(msg, FrameUnknown);
 	if(m == nil)
-		return ref TMmsg.Readerror(0, "bad Modbus message format");
+		return ref TMmsg.Readerror(FrameError, -1, -1, "bad Modbus message format");
 	return m;
 }
 
@@ -127,47 +209,48 @@ TMmsg.packedsize(t: self ref TMmsg): int
 	mtype := ttag2type[tagof t];
 	if(mtype <= 0)
 		return 0;
-	ml := H;
+	ml := headersize(t.frame);
 	pick m := t {
 	Readcoils =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Readdiscreteinputs =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Readholdingregisters =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Readinputregisters =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Writecoil =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Writeregister =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Readexception =>
-		;
+		ml += BIT8SZ;
 	Diagnostics =>
-		ml += BIT16SZ+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Commeventcounter =>
-		;
+		ml += BIT8SZ;
 	Commeventlog =>
-		;
+		ml += BIT8SZ;
 	Writecoils =>
-		ml += OFFSET+BIT16SZ+BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ+BIT8SZ+len m.data;
 	Writeregisters =>
-		ml += OFFSET+BIT16SZ+BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ+BIT8SZ+len m.data;
 	Slaveid =>
-		;
+		ml += BIT8SZ;
 	Readfilerecord =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Writefilerecord =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Maskwriteregister =>
-		ml += OFFSET+BIT16SZ+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ;
 	Rwregisters =>
-		ml += OFFSET+BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ+len m.data;
 	Readfifo =>
-		ml += OFFSET;
+		ml += BIT8SZ+BIT16SZ;
 	Encapsulatedtransport =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	}
+	ml += errorchecksize(t.frame);
 	return ml;
 }
 
@@ -178,27 +261,49 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 	ds := t.packedsize();
 	if(ds <= 0)
 		return nil;
-	d := array[ds] of byte;
-	d[0] = byte ttag2type[tagof t];
+	d := array[ds] of { * => byte 0};
+	H := 0;
+	case t.frame {
+	FrameRTU =>
+		d[0] = byte t.addr;
+		d[1] = byte ttag2type[tagof t];
+		H = 2;
+	FrameASCII =>
+		d[0] = byte ':';
+		s := array of byte sys->sprint("%2X", t.addr);
+		d[1] = s[0];
+		d[2] = s[1];
+		s = array of byte sys->sprint("%2X", ttag2type[tagof t]);
+		d[3] = s[0];
+		d[4] = s[1];
+		H = 5;
+	FrameTCP =>
+		p16(d, 4, ds - headersize(t.frame) + BIT8SZ);
+		d[6] = byte t.addr;
+		d[7] = byte ttag2type[tagof t];
+		H = 8;
+	* =>
+		return nil;
+	}
 	pick m := t {
 	Readcoils =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
+		p16(d, H+BIT16SZ, m.quantity);
 	Readdiscreteinputs =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
+		p16(d, H+BIT16SZ, m.quantity);
 	Readholdingregisters =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
+		p16(d, H+BIT16SZ, m.quantity);
 	Readinputregisters =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
+		p16(d, H+BIT16SZ, m.quantity);
 	Writecoil =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.value);
+		p16(d, H+BIT16SZ, m.value);
 	Writeregister =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.value);
+		p16(d, H+BIT16SZ, m.value);
 	Readexception =>
 		;
 	Diagnostics =>
@@ -210,14 +315,14 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 		;
 	Writecoils =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
-		d[H+OFFSET+BIT16SZ] = byte m.count;
-		d[H+OFFSET+BIT16SZ+BIT8SZ:] = m.data;
+		p16(d, H+BIT16SZ, m.quantity);
+		d[H+BIT16SZ+BIT16SZ] = byte m.count;
+		d[H+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
 	Writeregisters =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
-		d[H+OFFSET+BIT16SZ] = byte m.count;
-		d[H+OFFSET+BIT16SZ+BIT8SZ:] = m.data;
+		p16(d, H+BIT16SZ, m.quantity);
+		d[H+BIT16SZ+BIT16SZ] = byte m.count;
+		d[H+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
 	Slaveid =>
 		;
 	Readfilerecord =>
@@ -228,15 +333,15 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 		d[H+BIT8SZ:] = m.data;
 	Maskwriteregister =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.andmask);
-		p16(d, H+OFFSET+BIT16SZ, m.ormask);
+		p16(d, H+BIT16SZ, m.andmask);
+		p16(d, H+BIT16SZ+BIT16SZ, m.ormask);
 	Rwregisters =>
 		p16(d, H, m.roffset);
-		p16(d, H+OFFSET, m.rquantity);
-		p16(d, H+OFFSET+BIT16SZ, m.woffset);
-		p16(d, H+OFFSET+BIT16SZ+OFFSET, m.wquantity);
-		d[H+OFFSET+BIT16SZ+OFFSET+BIT16SZ] = byte m.count;
-		d[H+OFFSET+BIT16SZ+OFFSET+BIT16SZ+BIT8SZ:] = m.data;
+		p16(d, H+BIT16SZ, m.rquantity);
+		p16(d, H+BIT16SZ+BIT16SZ, m.woffset);
+		p16(d, H+BIT16SZ+BIT16SZ+BIT16SZ, m.wquantity);
+		d[H+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ] = byte m.count;
+		d[H+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
 	Readfifo =>
 		p16(d, H, m.offset);
 	Encapsulatedtransport =>
@@ -245,163 +350,198 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 	* =>
 		return nil;
 	}
+	
+	case t.frame {
+	FrameRTU =>
+		t.check = rtucrc(d[0], d[1:ds-2]);
+		d[ds-2] = byte(t.check);
+		d[ds-1] = byte(t.check >> 8);
+	FrameASCII =>
+		t.check = asciilrc(d[1:ds-2]);
+		s := array of byte sys->sprint("%2X", t.check);
+		d[ds-2] = s[0];
+		d[ds-1] = s[1];
+	}
+	
 	return d;
 }
 
-TMmsg.unpack(f: array of byte): (int, ref TMmsg)
+TMmsg.unpack(b: array of byte, h: int): (int, ref TMmsg)
 {
-	if(len f < H)
+	n := len b;
+	if(h == FrameUnknown)
+		h = crackheader(b);
+	if(h == FrameUnknown || n < headersize(h))
 		return (0, nil);
-	mtype := int f[0];
-	if(mtype >= Tmax || mtype < Treadcoils)
-		return (-1, nil);
 	
-	size := H;
+	(addr, o) := address(b, h);
+	if(addr == -1)
+		return (o, ref TMmsg.Readerror(FrameError, addr, -1, "Invalid address"));
+
+	(mtype, p) := functiontype(b, h);
+	if(mtype >= Tmax || mtype < Treadcoils)
+		return (p, ref TMmsg.Readerror(FrameError, addr, -1, "Invalid function"));
+	
+	H := headersize(h);
+	checksz := errorchecksize(h);
+	o = p;
 	m: ref TMmsg;
 	case mtype {
+	* =>
+		sys->print("modbus: TMmsg.unpack: bad type %d\n", mtype);
+		return (-1, nil);
 	Treadcoils =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref TMmsg.Readcoils(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, H);
+		v := g16(b, H+BIT16SZ);
+		m = ref TMmsg.Readcoils(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Treaddiscreteinputs =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref TMmsg.Readdiscreteinputs(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, H);
+		v := g16(b, H+BIT16SZ);
+		m = ref TMmsg.Readdiscreteinputs(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Treadholdingregisters =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref TMmsg.Readholdingregisters(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, H);
+		v := g16(b, H+BIT16SZ);
+		m = ref TMmsg.Readholdingregisters(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Treadinputregisters =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref TMmsg.Readinputregisters(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, H);
+		v := g16(b, H+BIT16SZ);
+		m = ref TMmsg.Readinputregisters(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Twritecoil =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref TMmsg.Writecoil(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, H);
+		v := g16(b, H+BIT16SZ);
+		m = ref TMmsg.Writecoil(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Twriteregister =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref TMmsg.Writeregister(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, H);
+		v := g16(b, H+BIT16SZ);
+		m = ref TMmsg.Writeregister(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Treadexception =>
-		m = ref TMmsg.Readexception(mtype, nil);
+		m = ref TMmsg.Readexception(h, addr, 0, nil);
 	Tdiagnostics =>
-		st := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref TMmsg.Diagnostics(mtype, st, v);
-		size += OFFSET+BIT16SZ;
+		st := g16(b, H);
+		v := g16(b, H+BIT16SZ);
+		m = ref TMmsg.Diagnostics(h, addr, 0, st, v);
+		o += BIT16SZ+BIT16SZ;
 	Tcommeventcounter =>
-		m = ref TMmsg.Commeventcounter(mtype, nil);
+		m = ref TMmsg.Commeventcounter(h, addr, 0, nil);
 	Tcommeventlog =>
-		m = ref TMmsg.Commeventlog(mtype, nil);
+		m = ref TMmsg.Commeventlog(h, addr, 0, nil);
 	Twritecoils =>
-		offset := g16(f, H);
-		q := g16(f, H+OFFSET);
-		c := int f[H+OFFSET+BIT16SZ];
-		O : con H+OFFSET+BIT16SZ+BIT8SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref TMmsg.Writecoils(mtype, offset, q, c, d);
-			size = O+c;
+		offset := g16(b, H);
+		q := g16(b, H+BIT16SZ);
+		c := int b[H+BIT16SZ+BIT16SZ];
+		O := H+BIT16SZ+BIT16SZ+BIT8SZ;
+		if(c <= n-O) {
+			d := b[O:O+c];
+			m = ref TMmsg.Writecoils(h, addr, 0, offset, q, c, d);
+			o += BIT16SZ+BIT16SZ+BIT8SZ+c;
 		}
 	Twriteregisters =>
-		offset := g16(f, H);
-		q := g16(f, H+OFFSET);
-		c := int f[H+OFFSET+BIT16SZ];
-		O : con H+OFFSET+BIT16SZ+BIT8SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref TMmsg.Writeregisters(mtype, offset, q, c, d);
-			size = O+c;
+		offset := g16(b, H);
+		q := g16(b, H+BIT16SZ);
+		c := int b[H+BIT16SZ+BIT16SZ];
+		O := H+BIT16SZ+BIT16SZ+BIT8SZ;
+		if(c <= n-O) {
+			d := b[O:O+c];
+			m = ref TMmsg.Writeregisters(h, addr, 0, offset, q, c, d);
+			o += BIT16SZ+BIT16SZ+BIT8SZ+c;
 		}
 	Tslaveid =>
-		m = ref TMmsg.Slaveid(mtype, nil);
+		m = ref TMmsg.Slaveid(h, addr, 0, nil);
 	Treadfilerecord =>
-		c := int f[H];
-		O : con H+BIT8SZ;
-		if(c <= len f-O) {
-			d := f[O:O+int c];
-			m = ref TMmsg.Readfilerecord(mtype, c, d);
-			size = O+c;
+		c := int b[H];
+		O := H+BIT8SZ;
+		if(c <= n-O) {
+			d := b[O:O+int c];
+			m = ref TMmsg.Readfilerecord(h, addr, 0, c, d);
+			o += BIT8SZ+c;
 		}
 	Twritefilerecord =>
-		c := int f[H];
-		O : con H+BIT8SZ;
-		if(c <= len f-O){
-			d := f[O:O+c];
-			m = ref TMmsg.Writefilerecord(mtype, c, d);
-			size = O+c;
+		c := int b[H];
+		O := H+BIT8SZ;
+		if(c <= n-O){
+			d := b[O:O+c];
+			m = ref TMmsg.Writefilerecord(h, addr, 0, c, d);
+			o += BIT8SZ+c;
 		}
 	Tmaskwriteregister =>
-		offset := g16(f, H);
-		amask := g16(f, H+OFFSET);
-		omask := g16(f, H+OFFSET+BIT16SZ);
-		m = ref TMmsg.Maskwriteregister(mtype, offset, amask, omask);
-		size += OFFSET+BIT16SZ+BIT16SZ;
+		offset := g16(b, H);
+		amask := g16(b, H+BIT16SZ);
+		omask := g16(b, H+BIT16SZ+BIT16SZ);
+		m = ref TMmsg.Maskwriteregister(h, addr, 0, offset, amask, omask);
+		o += BIT16SZ+BIT16SZ+BIT16SZ;
 	Trwregisters =>
-		ro := g16(f, H);
-		qr := g16(f, H+OFFSET);
-		wo := g16(f, H+OFFSET+BIT16SZ);
-		qw := g16(f, H+OFFSET+BIT16SZ+OFFSET);
-		c := int f[H+OFFSET+BIT16SZ+OFFSET+BIT16SZ];
-		O : con H+OFFSET+BIT16SZ+OFFSET+BIT16SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref TMmsg.Rwregisters(mtype, ro, qr, wo, qw, c, d);
-			size = O+c;
+		ro := g16(b, H);
+		qr := g16(b, H+BIT16SZ);
+		wo := g16(b, H+BIT16SZ+BIT16SZ);
+		qw := g16(b, H+BIT16SZ+BIT16SZ+BIT16SZ);
+		c := int b[H+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ];
+		O := H+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ;
+		if(c <= n-O) {
+			d := b[O:O+c];
+			m = ref TMmsg.Rwregisters(h, addr, 0, ro, qr, wo, qw, c, d);
+			o += BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ+c;
 		}
 	Treadfifo =>
-		o := g16(f, H);
-		m = ref TMmsg.Readfifo(mtype, o);
-		size += OFFSET;
+		offset := g16(b, H);
+		m = ref TMmsg.Readfifo(h, addr, 0, offset);
+		o += BIT16SZ;
 	Tencapsulatedtransport =>
 		;		# not supported
-	* =>
-		sys->werrstr("unrecognised mtype " + string mtype);
-		return (-1, nil);
 	}
-	if(m == nil) {
-		sys->werrstr("bad message size");
-		return (-1, nil);
-	}
-	return (size, m);
+	if(m != nil && n < o+checksz) {
+		case m.frame {
+		FrameRTU =>
+			m.check = g16(b, o);
+			if(m.check != rtucrc(byte addr, b[1:o]))
+				m = ref TMmsg.Readerror(m.frame, addr, m.check, "Invalid CRC");
+		FrameASCII =>
+			(m.check, nil) = str->toint(string b[o:o+2], 16);
+			if(m.check != asciilrc(b[1:o]))
+				m = ref TMmsg.Readerror(m.frame, addr, m.check, "Invalid LRC");
+			if(n < o+checksz+BIT16SZ ||
+				(b[o+checksz] != CR && b[o+checksz+BIT8SZ] != LF))
+				m = ref TMmsg.Readerror(m.frame, addr, m.check, "Incomplete frame");
+		}
+		o += checksz;
+	} else
+		m = nil;
+	return (o, m);
 }
 
 tmsgname := array[] of {
-tagof TMmsg.Readerror => "Readerror",
-tagof TMmsg.Readcoils => "Readcoils",
-tagof TMmsg.Readdiscreteinputs => "Readdiscreteinputs",
-tagof TMmsg.Readholdingregisters => "Readholdingregisters",
-tagof TMmsg.Readinputregisters => "Readinputregisters",
-tagof TMmsg.Writecoil => "Writecoil",
-tagof TMmsg.Writeregister => "Writeregister",
-tagof TMmsg.Readexception => "Readexception",
+tagof TMmsg.Readerror => "Read Error",
+tagof TMmsg.Readcoils => "Read Coils",
+tagof TMmsg.Readdiscreteinputs => "Read Discrete Inputs",
+tagof TMmsg.Readholdingregisters => "Read Holding Registers",
+tagof TMmsg.Readinputregisters => "Read Input Registers",
+tagof TMmsg.Writecoil => "Write Single Coil",
+tagof TMmsg.Writeregister => "Write Single Register",
+tagof TMmsg.Readexception => "Read Exception Status",
 tagof TMmsg.Diagnostics => "Diagnostics",
-tagof TMmsg.Commeventcounter => "Commeventcounter",
-tagof TMmsg.Commeventlog => "Commeventlog",
-tagof TMmsg.Writecoils => "Writecoils",
-tagof TMmsg.Writeregisters => "Writeregisters",
-tagof TMmsg.Slaveid => "Slaveid",
-tagof TMmsg.Readfilerecord => "Readfilerecord",
-tagof TMmsg.Writefilerecord => "Writefilerecord",
-tagof TMmsg.Maskwriteregister => "Maskwriteregister",
-tagof TMmsg.Rwregisters => "Rwregisters",
-tagof TMmsg.Readfifo => "Readfifo",
-tagof TMmsg.Encapsulatedtransport => "Encapsulatedtransport",
+tagof TMmsg.Commeventcounter => "Get Comm Event Counter",
+tagof TMmsg.Commeventlog => "Get Comm Event Log",
+tagof TMmsg.Writecoils => "Write Multiple Coils",
+tagof TMmsg.Writeregisters => "Write Multiple Registers",
+tagof TMmsg.Slaveid => "Report Slave ID",
+tagof TMmsg.Readfilerecord => "Read File Record",
+tagof TMmsg.Writefilerecord => "Write File Record",
+tagof TMmsg.Maskwriteregister => "Mask Write Register",
+tagof TMmsg.Rwregisters => "Read/Write Multiple Registers",
+tagof TMmsg.Readfifo => "Read FIFO Queue",
+tagof TMmsg.Encapsulatedtransport => "Encapsulated Interface Transport",
 };
 
 TMmsg.text(t: self ref TMmsg): string
 {
 	if(t == nil)
 		return "(nil)";
-	s := sys->sprint("TMmsg.%s(%d", tmsgname[tagof t], t.fcode);
-	return s+")";
+	return "TMmsg."+tmsgname[tagof t];
 }
 
 rtag2type := array[] of {
@@ -435,12 +575,12 @@ RMmsg.read(fd: ref Sys->FD, msglim: int): ref RMmsg
 {
 	(msg, err) := readmsg(fd, msglim);
 	if(err != nil)
-		return ref RMmsg.Readerror(0, err);
+		return ref RMmsg.Readerror(FrameError, -1, -1, err);
 	if(msg == nil)
 		return nil;
-	(nil, m) := RMmsg.unpack(msg);
+	(nil, m) := RMmsg.unpack(msg, FrameUnknown);
 	if(m == nil)
-		return ref RMmsg.Readerror(0, "ModbusP RTU-message format error");
+		return ref RMmsg.Readerror(FrameError, -1, -1, "bad Modbus message format");
 	return m;
 }
 
@@ -449,46 +589,46 @@ RMmsg.packedsize(t: self ref RMmsg): int
 	mtype := rtag2type[tagof t];
 	if(mtype <= 0)
 		return 0;
-	ml := H;
+	ml := headersize(t.frame);
 	pick m := t {
 	Readcoils =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Readdiscreteinputs =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Readholdingregisters =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Readinputregisters =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Writecoil =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Writeregister =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Readexception =>
-		ml += BIT8SZ;
+		ml += BIT8SZ+BIT8SZ;
 	Diagnostics =>
-		ml += BIT16SZ+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Commeventcounter =>
-		ml += BIT16SZ+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Commeventlog =>
-		ml += BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ+len m.data;
 	Writecoils =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Writeregisters =>
-		ml += OFFSET+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Slaveid =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Readfilerecord =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Writefilerecord =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Maskwriteregister =>
-		ml += OFFSET+BIT16SZ+BIT16SZ;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ;
 	Rwregisters =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	Readfifo =>
-		ml += BIT16SZ+BIT16SZ+len m.data;
+		ml += BIT8SZ+BIT16SZ+BIT16SZ+len m.data;
 	Encapsulatedtransport =>
-		ml += BIT8SZ+len m.data;
+		ml += BIT8SZ+BIT8SZ+len m.data;
 	}
 	return ml;
 }
@@ -501,8 +641,32 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 	if(ds <= 0)
 		return nil;
 	d := array[ds] of byte;
-	d[0] = byte rtag2type[tagof t];
+	H := 0;
+	case t.frame {
+	FrameRTU =>
+		d[0] = byte t.addr;
+		d[1] = byte rtag2type[tagof t];
+		H = 2;
+	FrameASCII =>
+		d[0] = byte ':';
+		s := array of byte sys->sprint("%2X", t.addr);
+		d[1] = s[0];
+		d[2] = s[1];
+		s = array of byte sys->sprint("%2X", rtag2type[tagof t]);
+		d[3] = s[0];
+		d[4] = s[1];
+		H = 5;
+	FrameTCP =>
+		d[6] = byte t.addr;
+		d[7] = byte rtag2type[tagof t];
+		H = 8;
+	* =>
+		return nil;
+	}
 	pick m := t {
+	Error =>
+		d[H] = m.fcode;
+		d[H+BIT8SZ] = m.ecode;
 	Readcoils =>
 		d[H] = byte m.count;
 		d[H+BIT8SZ:] = m.data;
@@ -517,10 +681,10 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 		d[H+BIT8SZ:] = m.data;
 	Writecoil =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.value);
+		p16(d, H+BIT16SZ, m.value);
 	Writeregister =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.value);
+		p16(d, H+BIT16SZ, m.value);
 	Readexception =>
 		d[H] = m.data;
 	Diagnostics =>
@@ -537,10 +701,10 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 		d[H+BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ:] = m.data;
 	Writecoils =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
+		p16(d, H+BIT16SZ, m.quantity);
 	Writeregisters =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.quantity);
+		p16(d, H+BIT16SZ, m.quantity);
 	Slaveid =>
 		d[H] = byte m.count;
 		d[H+BIT8SZ:] = m.data;
@@ -552,8 +716,8 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 		d[H+BIT8SZ:] = m.data;
 	Maskwriteregister =>
 		p16(d, H, m.offset);
-		p16(d, H+OFFSET, m.andmask);
-		p16(d, H+OFFSET+BIT16SZ, m.ormask);
+		p16(d, H+BIT16SZ, m.andmask);
+		p16(d, H+BIT16SZ+BIT16SZ, m.ormask);
 	Rwregisters =>
 		d[H] = byte m.count;
 		d[H+BIT8SZ:] = m.data;
@@ -570,199 +734,234 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 	return d;
 }
 
-RMmsg.unpack(f: array of byte): (int, ref RMmsg)
+RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 {
-	if(len f < H)
+	n := len b;
+	if(h == FrameUnknown)
+		h = crackheader(b);
+	if(h == FrameUnknown || n < headersize(h))
 		return (0, nil);
-	mtype := int f[0];
-	if(mtype >= Tmax || mtype < Treadcoils)
-		return (-1, nil);
+
+	mtype := 0;
+	addr := 0;
+	o := 0;
 	
-	size := H;
+	(addr, o) = address(b, h);
+	if(addr == -1)
+		return (o, ref RMmsg.Readerror(FrameError, addr, -1, "Invalid address"));
+
+	(mtype, o) = functiontype(b, h);
+	if(mtype >= Tmax || mtype < Treadcoils)
+		return (o, ref RMmsg.Readerror(FrameError, addr, -1, "Invalid function"));
+
+	if(n < o)
+		return (0, nil);
+	
+	checksz := errorchecksize(h);
 	m: ref RMmsg;
 	case mtype {
+	* =>
+		if(16r80 < mtype && mtype < Tmax) {
+			m = ref RMmsg.Error(h, addr, 0, b[o], b[o+BIT8SZ]);
+			o += BIT8SZ+BIT8SZ;
+		} else
+			return (o, ref RMmsg.Readerror(FrameError, addr, -1,
+					sys->sprint("modbus: RMmsg.unpack: bad type %d\n", mtype)));
 	Treadcoils =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c == len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Readcoils(mtype, c, d);
-			size += len d;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c == n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Readcoils(h, addr, 0, c, d);
+			o += len d;
 		}
 	Treaddiscreteinputs =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c == len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Readdiscreteinputs(mtype, c, d);
-			size += len d;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Readdiscreteinputs(h, addr, 0, c, d);
+			o += len d;
 		}
 	Treadholdingregisters =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c == len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Readholdingregisters(mtype, c, d);
-			size += len d;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Readholdingregisters(h, addr, 0, c, d);
+			o += len d;
 		}
 	Treadinputregisters =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c == len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Readinputregisters(mtype, c, d);
-			size += len d;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Readinputregisters(h, addr, 0, c, d);
+			o += len d;
 		}
 	Twritecoil =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref RMmsg.Writecoil(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, o);
+		v := g16(b, o+BIT16SZ);
+		m = ref RMmsg.Writecoil(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Twriteregister =>
-		offset := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref RMmsg.Writeregister(mtype, offset, v);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, o);
+		v := g16(b, o+BIT16SZ);
+		m = ref RMmsg.Writeregister(h, addr, 0, offset, v);
+		o += BIT16SZ+BIT16SZ;
 	Treadexception =>
-		d := f[H];
-		size += BIT8SZ;
-		m = ref RMmsg.Readexception(mtype, d);
+		d := b[o];
+		m = ref RMmsg.Readexception(h, addr, 0, d);
+		o += BIT8SZ;
 	Tdiagnostics =>
-		st := g16(f, H);
-		v := g16(f, H+OFFSET);
-		m = ref RMmsg.Diagnostics(mtype, st, v);
-		size += OFFSET+BIT16SZ;
+		st := g16(b, o);
+		v := g16(b, o+BIT16SZ);
+		m = ref RMmsg.Diagnostics(h, addr, 0, st, v);
+		o += BIT16SZ+BIT16SZ;
 	Tcommeventcounter =>
-		st := g16(f, H);
-		c := g16(f, H+OFFSET);
-		m = ref RMmsg.Commeventcounter(mtype, st, c);
-		size += OFFSET+BIT16SZ;
+		st := g16(b, o);
+		c := g16(b, o+BIT16SZ);
+		m = ref RMmsg.Commeventcounter(h, addr, 0, st, c);
+		o += BIT16SZ+BIT16SZ;
 	Tcommeventlog =>
-		c := int f[H];
-		st := g16(f, H+BIT8SZ);
-		ec := g16(f, H+BIT8SZ+BIT16SZ);
-		mc := g16(f, H+BIT8SZ+BIT16SZ+BIT16SZ);
-		size += BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ;
-		O : con H+BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Commeventlog(mtype, c, st, ec, mc, d);
-			size += c;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			st := g16(b, o);
+			ec := g16(b, o+BIT16SZ);
+			mc := g16(b, o+BIT16SZ+BIT16SZ);
+			d := b[o:o+c];
+			m = ref RMmsg.Commeventlog(h, addr, 0, c, st, ec, mc, d);
+			o += BIT16SZ+BIT16SZ+BIT16SZ+c;
 		}
 	Twritecoils =>
-		offset := g16(f, H);
-		q := g16(f, H+OFFSET);
-		m = ref RMmsg.Writecoils(mtype, offset, q);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, o);
+		q := g16(b, o+BIT16SZ);
+		m = ref RMmsg.Writecoils(h, addr, 0, offset, q);
+		o += BIT16SZ+BIT16SZ;
 	Twriteregisters =>
-		offset := g16(f, H);
-		q := g16(f, H+OFFSET);
-		m = ref RMmsg.Writeregisters(mtype, offset, q);
-		size += OFFSET+BIT16SZ;
+		offset := g16(b, o);
+		q := g16(b, o+BIT16SZ);
+		m = ref RMmsg.Writeregisters(h, addr, 0, offset, q);
+		o += BIT16SZ+BIT16SZ;
 	Tslaveid =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Slaveid(mtype, c, d);
-			size += c;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Slaveid(h, addr, 0, c, d);
+			o += c;
 		}
 	Treadfilerecord =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Readfilerecord(mtype, c, d);
-			size += c;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Readfilerecord(h, addr, 0, c, d);
+			o += c;
 		}
 	Twritefilerecord =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Writefilerecord(mtype, c, d);
-			size += c;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Writefilerecord(h, addr, 0, c, d);
+			o += c;
 		}
 	Tmaskwriteregister =>
-		offset := g16(f, H);
-		amask := g16(f, H+OFFSET);
-		omask := g16(f, H+OFFSET+BIT16SZ);
-		m = ref RMmsg.Maskwriteregister(mtype, offset, amask, omask);
-		size += OFFSET+BIT16SZ+BIT16SZ;
+		offset := g16(b, o);
+		amask := g16(b, o+BIT16SZ);
+		omask := g16(b, o+BIT16SZ+BIT16SZ);
+		m = ref RMmsg.Maskwriteregister(h, addr, 0, offset, amask, omask);
+		o += BIT16SZ+BIT16SZ+BIT16SZ;
 	Trwregisters =>
-		c := int f[H];
-		size += BIT8SZ;
-		O : con H+BIT8SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Rwregisters(mtype, c, d);
-			size += c;
+		c := int b[o];
+		o += BIT8SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Rwregisters(h, addr, 0, c, d);
+			o += c;
 		}
 	Treadfifo =>
-		c := g16(f, H);
-		fc := g16(f, H+BIT16SZ);
-		size += BIT16SZ+BIT16SZ;
-		O : con H+BIT16SZ+BIT16SZ;
-		if(c <= len f-O) {
-			d := f[O:O+c];
-			m = ref RMmsg.Readfifo(mtype, c, fc, d);
-			size += c;
+		c := g16(b, o);
+		fc := g16(b, o+BIT16SZ);
+		o += BIT16SZ+BIT16SZ;
+		if(c <= n - o) {
+			d := b[o:o+c];
+			m = ref RMmsg.Readfifo(h, addr, 0, c, fc, d);
+			o += c;
 		}
 	Tencapsulatedtransport =>
 		;		# not supported
-	* =>
-		sys->werrstr("unrecognised mtype " + string mtype);
-		return (-1, nil);
 	}
-	if(m == nil) {
-		sys->werrstr("bad message size");
-		return (-1, nil);
-	}
-	return (size, m);
+	if(m != nil && n < o+checksz) {
+		case m.frame {
+		FrameRTU =>
+			m.check = g16(b, o);
+			if(m.check != rtucrc(byte addr, b[1:o]))
+				m = ref RMmsg.Readerror(m.frame, addr, m.check, "Invalid CRC");
+		FrameASCII =>
+			(m.check, nil) = str->toint(string b[o:o+2], 16);
+			if(m.check != asciilrc(b[1:o]))
+				m = ref RMmsg.Readerror(m.frame, addr, m.check, "Invalid LRC");
+			if(n < o+checksz+BIT16SZ ||
+				(b[o+checksz] != CR && b[o+checksz+BIT8SZ] != LF))
+				m = ref RMmsg.Readerror(m.frame, addr, m.check, "Incomplete frame");
+		}
+		o += checksz;
+	} else
+		m = nil;
+	
+	return (o, m);
 }
 
 rmsgname := array[] of {
-tagof RMmsg.Readerror => "Readerror",
-tagof RMmsg.Readcoils => "Readcoils",
-tagof RMmsg.Readdiscreteinputs => "Readdiscreteinputs",
-tagof RMmsg.Readholdingregisters => "Readholdingregisters",
-tagof RMmsg.Readinputregisters => "Readinputregisters",
-tagof RMmsg.Writecoil => "Writecoil",
-tagof RMmsg.Writeregister => "Writeregister",
-tagof RMmsg.Readexception => "Readexception",
+tagof RMmsg.Readerror => "Read Error",
+tagof RMmsg.Readcoils => "Read Coils",
+tagof RMmsg.Readdiscreteinputs => "Read Discrete Inputs",
+tagof RMmsg.Readholdingregisters => "Read Holding Registers",
+tagof RMmsg.Readinputregisters => "Read Input Registers",
+tagof RMmsg.Writecoil => "Write Single Coil",
+tagof RMmsg.Writeregister => "Write Single Register",
+tagof RMmsg.Readexception => "Read Exception Status",
 tagof RMmsg.Diagnostics => "Diagnostics",
-tagof RMmsg.Commeventcounter => "Commeventcounter",
-tagof RMmsg.Commeventlog => "Commeventlog",
-tagof RMmsg.Writecoils => "Writecoils",
-tagof RMmsg.Writeregisters => "Writeregisters",
-tagof RMmsg.Slaveid => "Slaveid",
-tagof RMmsg.Readfilerecord => "Readfilerecord",
-tagof RMmsg.Writefilerecord => "Writefilerecord",
-tagof RMmsg.Maskwriteregister => "Maskwriteregister",
-tagof RMmsg.Rwregisters => "Rwregisters",
-tagof RMmsg.Readfifo => "Readfifo",
-tagof RMmsg.Encapsulatedtransport => "Encapsulatedtransport",
+tagof RMmsg.Commeventcounter => "Get Comm Event Counter",
+tagof RMmsg.Commeventlog => "Get Comm Event Log",
+tagof RMmsg.Writecoils => "Write Multiple Coils",
+tagof RMmsg.Writeregisters => "Write Multiple Registers",
+tagof RMmsg.Slaveid => "Report Slave ID",
+tagof RMmsg.Readfilerecord => "Read File Record",
+tagof RMmsg.Writefilerecord => "Write File Record",
+tagof RMmsg.Maskwriteregister => "Mask Write Register",
+tagof RMmsg.Rwregisters => "Read/Write Multiple Registers",
+tagof RMmsg.Readfifo => "Read FIFO Queue",
+tagof RMmsg.Encapsulatedtransport => "Encapsulated Interface Transport",
 };
 
 RMmsg.text(t: self ref RMmsg): string
 {
 	if(t == nil)
 		return "(nil)";
-	s := sys->sprint("RMmsg.%s(%d", rmsgname[tagof t], t.fcode);
-	return s+")";
+	return "RMmsg."+rmsgname[tagof t];
 }
 
 readmsg(fd: ref Sys->FD, msglim: int): (array of byte, string)
 {
 	sys->werrstr("readmsg unimplemented");
 	return (nil, sys->sprint("%r"));
+}
+
+asciilrc(b: array of byte): int
+{
+	r := byte 0;
+	n := len b;
+	if(n > 0)
+		r = b[0];
+	
+	for(i := 1; i < n; i++)
+		r ^= b[i];
+	
+	return int r;
 }
 
 rtupack(addr: byte, pdu: array of byte): array of byte

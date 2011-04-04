@@ -8,17 +8,25 @@ Modbus : module
 
 	BIT8SZ:	con 1;
 	BIT16SZ:	con 2;
+	BIT32SZ:	con 4;
+	BIT64SZ:	con 8;
 
 	MBAPSZ:		con 7;
 	
 	MAXPDUSZ:	con 253;
-	MAXRTUADUSZ:	con BIT8SZ+MAXPDUSZ+BIT16SZ;
-	MAXTCPADUSZ:	con MAXPDUSZ+MBAPSZ;
+	MAXASCIIDATASZ:	con 504;
 	
-	ModeRTU,
-	ModeASCII,
-	ModeTCP,
-	Maxmode:	con iota;
+	MAXRTUADUSZ:	con BIT8SZ+MAXPDUSZ+BIT16SZ;
+	MAXASCIIADUSZ:	con BIT8SZ+BIT16SZ+BIT16SZ+MAXASCIIDATASZ+BIT16SZ+BIT16SZ;
+	MAXTCPADUSZ:	con MAXPDUSZ+MBAPSZ;
+
+	FrameError:	con -1;
+	FrameUnknown:	con -1;
+	
+	FrameRTU,
+	FrameASCII,
+	FrameTCP,
+	Maxframe:	con iota;
 	
 	ERR_RTUCRC:	con "CRC error";
 	ERR_RTUINCOMPLETE:	con "RTU incomlete";
@@ -68,10 +76,12 @@ Modbus : module
 	
 	
 	TMmsg: adt {
-		fcode: int;
+		frame: int;
+		addr: int;							# 1 or 2 bytes
+		check: int;							# 0 or 2 bytes
 		pick {
 		Readerror =>
-			error: string;					# tag/fcode is unused in this case
+			error: string;
 		Readcoils =>
 			offset:	int;					# 2	bytes, 0x0000 to 0xFFFF
 			quantity: int;					# 2 bytes, 0x0001 to 0x07D0
@@ -138,18 +148,21 @@ Modbus : module
 		read:	fn(fd: ref Sys->FD, msglim: int): ref TMmsg;
 		packedsize:	fn(nil: self ref TMmsg): int;
 		pack:	fn(nil: self ref TMmsg): array of byte;
-		unpack:	fn(a: array of byte): (int, ref TMmsg);
+		unpack:	fn(b: array of byte, h: int): (int, ref TMmsg);
 		text:	fn(nil: self ref TMmsg): string;
 		mtype:	fn(nil: self ref TMmsg): int;
 	};
 
 	RMmsg: adt {
-		fcode: int;
+		frame: int;
+		addr: int;
+		check: int;
 		pick {
 		Readerror =>
-			error: string;					# tag is unused in this case
+			error: string;
 		Error =>
-			data: byte;
+			fcode: byte;
+			ecode: byte;
 		Readcoils =>
 			count: int;
 			data: array of byte;			# coil status
@@ -216,7 +229,7 @@ Modbus : module
 		read:	fn(fd: ref Sys->FD, msize: int): ref RMmsg;
 		packedsize:	fn(nil: self ref RMmsg): int;
 		pack:	fn(nil: self ref RMmsg): array of byte;
-		unpack:	fn(a: array of byte): (int, ref RMmsg);
+		unpack:	fn(b: array of byte, h: int): (int, ref RMmsg);
 		text:	fn(nil: self ref RMmsg): string;
 		mtype:	fn(nil: self ref RMmsg): int;
 	};

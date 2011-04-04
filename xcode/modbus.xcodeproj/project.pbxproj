@@ -11,16 +11,16 @@
 		41120B1D12F8C07300576FF7 /* mkfile */ = {isa = PBXFileReference; explicitFileType = text; fileEncoding = 4; name = mkfile; path = ../mkfile; sourceTree = "<group>"; };
 		41120B1E12F8C07300576FF7 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = ../README.txt; sourceTree = "<group>"; };
 		411C4559133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
-		411C455A133026E600A1C6DE /* testmodbus.b */ = {isa = PBXFileReference; explicitFileType = sourcecode.c; fileEncoding = 4; path = testmodbus.b; sourceTree = "<group>"; };
+		411C455A133026E600A1C6DE /* testmodbus.b */ = {isa = PBXFileReference; explicitFileType = sourcecode.c; fileEncoding = 4; lineEnding = 0; path = testmodbus.b; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		411C455C133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
-		411C455D133026E600A1C6DE /* modbus.b */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; path = modbus.b; sourceTree = "<group>"; };
+		411C455D133026E600A1C6DE /* modbus.b */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; lineEnding = 0; path = modbus.b; sourceTree = "<group>"; };
 		411C4560133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
 		411C4563133026E600A1C6DE /* modbus */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = modbus; sourceTree = "<group>"; };
 		411C4564133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
 		411C4565133026E600A1C6DE /* mkman */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkman; sourceTree = "<group>"; };
 		411C4567133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
 		411C4568133026E600A1C6DE /* mkmod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkmod; sourceTree = "<group>"; };
-		411C4569133026E600A1C6DE /* modbus.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; path = modbus.m; sourceTree = "<group>"; };
+		411C4569133026E600A1C6DE /* modbus.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; lineEnding = 0; path = modbus.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
