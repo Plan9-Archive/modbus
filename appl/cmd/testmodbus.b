@@ -459,7 +459,7 @@ getreply(p: ref Port): (ref RMmsg, string)
 	p.rdlock.obtain();
 	n := len p.avail;
 	if(n >= 4) {
-		(o, m) := RMmsg.unpack(p.avail, Modbus->FrameUnknown);
+		(o, m) := RMmsg.unpack(p.avail, p.frame);
 		if(m != nil) {
 			r = m;
 			p.avail = p.avail[o:];

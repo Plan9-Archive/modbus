@@ -90,9 +90,13 @@ crackheader(b: array of byte): int
 {
 	if(b == nil || len b < 5)
 		return FrameUnknown;
-	
 	h := FrameUnknown;
-	# finish
+	if(g16(b, 2) == 0)
+		h = FrameTCP;					# high likelihood
+	if(b[0] == byte ':' && h != FrameTCP)
+		h = FrameASCII;					# moderate chance
+	if(h == FrameUnknown)
+		h = FrameRTU;					# punt
 	return h;
 }
 
