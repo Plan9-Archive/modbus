@@ -53,6 +53,8 @@ Modbus : module
 	Tencapsulatedtransport,
 	Tmax:					con (16r2B+iota);
 	
+	Terror:					con 16r80;
+	
 	# sub-function codes (Diagnostics)
 	TDreadquerydata,			# 0x00
 	TDrestartcom,
@@ -82,6 +84,9 @@ Modbus : module
 		pick {
 		Readerror =>
 			error: string;
+		Error =>
+			fcode: byte;
+			ecode: byte;
 		Readcoils =>
 			offset:	int;					# 2	bytes, 0x0000 to 0xFFFF
 			quantity: int;					# 2 bytes, 0x0001 to 0x07D0

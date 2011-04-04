@@ -33,25 +33,25 @@ init()
 	}
 	
 	error_types = array[] of {
-		16r80 + Treadcoils,
-		16r80 + Treaddiscreteinputs,
-		16r80 + Treadholdingregisters,
-		16r80 + Treadinputregisters,
-		16r80 + Twritecoil,
-		16r80 + Twriteregister,
-		16r80 + Treadexception,
-		16r80 + Tdiagnostics,
-		16r80 + Tcommeventcounter,
-		16r80 + Tcommeventlog,
-		16r80 + Twritecoils,
-		16r80 + Twriteregisters,
-		16r80 + Tslaveid,
-		16r80 + Treadfilerecord,
-		16r80 + Twritefilerecord,
-		16r80 + Tmaskwriteregister,
-		16r80 + Trwregisters,
-		16r80 + Treadfifo,
-		16r80 + Tencapsulatedtransport,
+		Terror + Treadcoils,
+		Terror + Treaddiscreteinputs,
+		Terror + Treadholdingregisters,
+		Terror + Treadinputregisters,
+		Terror + Twritecoil,
+		Terror + Twriteregister,
+		Terror + Treadexception,
+		Terror + Tdiagnostics,
+		Terror + Tcommeventcounter,
+		Terror + Tcommeventlog,
+		Terror + Twritecoils,
+		Terror + Twriteregisters,
+		Terror + Tslaveid,
+		Terror + Treadfilerecord,
+		Terror + Twritefilerecord,
+		Terror + Tmaskwriteregister,
+		Terror + Trwregisters,
+		Terror + Treadfifo,
+		Terror + Tencapsulatedtransport,
 	};
 	
 #	tabs();
@@ -217,6 +217,7 @@ headersize(f: int): int
 
 ttag2type := array[] of {
 tagof TMmsg.Readerror => 0,
+tagof TMmsg.Error => Terror,
 tagof TMmsg.Readcoils => Treadcoils,
 tagof TMmsg.Readdiscreteinputs => Treaddiscreteinputs,
 tagof TMmsg.Readholdingregisters => Treadholdingregisters,
@@ -263,6 +264,8 @@ TMmsg.packedsize(t: self ref TMmsg): int
 		return 0;
 	ml := headersize(t.frame);
 	pick m := t {
+	Error =>
+		ml += BIT8SZ+BIT8SZ;
 	Readcoils =>
 		ml += BIT8SZ+BIT16SZ+BIT16SZ;
 	Readdiscreteinputs =>
@@ -448,7 +451,7 @@ TMmsg.unpack(b: array of byte, h: int): (int, ref TMmsg)
 	(mtype, p) := functiontype(b, h);
 	if(mtype == -1)
 		return (0, nil);
-	if(mtype >= Tmax || mtype < Treadcoils)
+	if((mtype >= Tmax || mtype < Treadcoils) && !funciserror(mtype))
 		return (p, ref TMmsg.Readerror(FrameError, addr, -1, 
 					sys->sprint("Invalid function (%0X)", mtype)));
 	
@@ -586,6 +589,7 @@ TMmsg.unpack(b: array of byte, h: int): (int, ref TMmsg)
 
 tmsgname := array[] of {
 tagof TMmsg.Readerror => "Read Error",
+tagof TMmsg.Error => "Error",
 tagof TMmsg.Readcoils => "Read Coils",
 tagof TMmsg.Readdiscreteinputs => "Read Discrete Inputs",
 tagof TMmsg.Readholdingregisters => "Read Holding Registers",
@@ -611,10 +615,12 @@ TMmsg.text(t: self ref TMmsg): string
 {
 	if(t == nil)
 		return "(nil)";
-	return "TMmsg."+tmsgname[tagof t];
+	return "TMmsg "+tmsgname[tagof t];
 }
 
 rtag2type := array[] of {
+tagof RMmsg.Readerror => 0,
+tagof RMmsg.Error => Terror,
 tagof RMmsg.Readcoils => Treadcoils,
 tagof RMmsg.Readdiscreteinputs => Treaddiscreteinputs,
 tagof RMmsg.Readholdingregisters => Treadholdingregisters,
@@ -661,6 +667,8 @@ RMmsg.packedsize(t: self ref RMmsg): int
 		return 0;
 	ml := headersize(t.frame);
 	pick m := t {
+	Error =>
+		ml += BIT8SZ+BIT8SZ;
 	Readcoils =>
 		ml += BIT8SZ+BIT8SZ+len m.data;
 	Readdiscreteinputs =>
@@ -834,9 +842,10 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 	m: ref RMmsg;
 	case mtype {
 	* =>
-		sys->fprint(sys->fildes(2), "unpack: %d\n", n);
+		sys->fprint(sys->fildes(2), "unpack: %d %d\n", n, o);
 		if(funciserror(mtype)) {
-			if(n < o+BIT8SZ)
+			sys->fprint(sys->fildes(2), "%s\n", hexdump(b));
+			if(n < o+BIT8SZ+BIT8SZ)
 				break;
 			m = ref RMmsg.Error(h, addr, 0, b[o], b[o+BIT8SZ]);
 			sys->fprint(sys->fildes(2), "here\n");
@@ -1063,7 +1072,7 @@ rtuunpack(data: array of byte): (byte, array of byte, int, int, string)
 	if(n > 4) {
 		addr = data[0];
 		f := int data[1];
-		if(f > 16r80) {		# Modbus error
+		if(f > Terror) {		# Modbus error
 			pdu = data[1:3];
 			c = g16(data, 4);
 			if(c != rtucrc(addr, pdu))
