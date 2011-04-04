@@ -153,6 +153,7 @@ test(p: ref Port,b: array of byte, s: string)
 
 labjack()
 {
+	port.frame = Modbus->FrameTCP;
 	b := array[] of {
 		byte 16r00, byte 16r00, byte 16r00, byte 16r00, byte 16r00,
 		byte 16r06, byte 16r01, byte 16r01, byte 16r00, byte 16r00,
@@ -461,8 +462,18 @@ getreply(p: ref Port): (ref RMmsg, string)
 	if(n >= 4) {
 		(o, m) := RMmsg.unpack(p.avail, p.frame);
 		if(m != nil) {
-			r = m;
-			p.avail = p.avail[o:];
+			if(m.mtype() == 0) {
+				sys->fprint(stderr, "RX <- %s\n", hexdump(port.avail[0:]));
+				sys->fprint(stderr, "\to: %d\n", o);
+				pick x := m {
+				Readerror =>
+					sys->fprint(stderr, "\t%s\n", x.error);
+				}
+			} else {
+				r = m;
+				sys->fprint(stderr, "RX <- %s\n", hexdump(port.avail[0:o]));
+				p.avail = p.avail[o:];
+			}
 		}
 	}
 	p.rdlock.release();
@@ -484,7 +495,7 @@ readreply(p: ref Port, ms: int): (ref RMmsg, string)
 		(r, err) = getreply(p);
 		if(r == nil) {
 			if(limit--) {
-				sys->sleep(1);
+				sys->sleep(5);
 				continue;
 			}
 			break;

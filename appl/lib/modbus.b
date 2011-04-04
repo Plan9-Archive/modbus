@@ -19,6 +19,8 @@ LF: con byte 16r0A;
 
 crc_state: ref CRCstate;
 
+error_types: array of int;
+
 init()
 {
 	if(sys == nil)
@@ -29,7 +31,53 @@ init()
 		crc = load Crc Crc->PATH;
 		crc_state = crc->init(POLY, SEED);
 	}
+	
+	error_types = array[] of {
+		16r80 + Treadcoils,
+		16r80 + Treaddiscreteinputs,
+		16r80 + Treadholdingregisters,
+		16r80 + Treadinputregisters,
+		16r80 + Twritecoil,
+		16r80 + Twriteregister,
+		16r80 + Treadexception,
+		16r80 + Tdiagnostics,
+		16r80 + Tcommeventcounter,
+		16r80 + Tcommeventlog,
+		16r80 + Twritecoils,
+		16r80 + Twriteregisters,
+		16r80 + Tslaveid,
+		16r80 + Treadfilerecord,
+		16r80 + Twritefilerecord,
+		16r80 + Tmaskwriteregister,
+		16r80 + Trwregisters,
+		16r80 + Treadfifo,
+		16r80 + Tencapsulatedtransport,
+	};
+	
 #	tabs();
+}
+
+funciserror(f: int): int
+{
+	e := 0;
+	for(i := 0; i < len error_types; i++)
+		if(error_types[i] == f) {
+			e = 1;
+			break;
+		}
+	return e;
+}
+
+hexdump(b: array of byte): string
+{
+	s := "";
+	for(i:=0; i<len b; i++) {
+		if(i%8 == 0)
+			s = s + "\n\t";
+		s = sys->sprint("%s %02X", s, int(b[i]));
+	}
+	
+	return str->drop(s, "\n");
 }
 
 tabs() {
@@ -116,7 +164,7 @@ address(b: array of byte, f: int): (int, int)
 		o = 3;
 	FrameTCP =>
 		addr = int b[6];
-		o = 6;
+		o = 7;
 	}
 	return (addr, o);
 }
@@ -142,14 +190,14 @@ functiontype(b: array of byte, h: int): (int, int)
 	case h {
 	FrameRTU =>
 		f = int b[1];
-		o = 1;
+		o = 2;
 	FrameASCII =>
 		(f, nil) = str->toint(string b[3:5], 16);
 		o = 5;
 	FrameTCP =>
 		if(len b > 7) {
 			f = int b[7];
-			o = 7;
+			o = 8;
 		}
 	}
 	
@@ -160,9 +208,9 @@ headersize(f: int): int
 {
 	sz := 0;
 	case f {
-	FrameRTU => sz = BIT8SZ+BIT8SZ;						# Addres + Function Code
-	FrameASCII => sz = BIT8SZ+BIT16SZ+BIT16SZ;
-	FrameTCP => sz = BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ;
+	FrameRTU => sz = BIT8SZ;							# address
+	FrameASCII => sz = BIT8SZ+BIT16SZ;					# :address
+	FrameTCP => sz = BIT16SZ+BIT16SZ+BIT16SZ;			# ?? 00 address
 	}
 	return sz;
 }
@@ -266,12 +314,12 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 	if(ds <= 0)
 		return nil;
 	d := array[ds] of { * => byte 0};
-	H := 0;
+	o := 0;
 	case t.frame {
 	FrameRTU =>
 		d[0] = byte t.addr;
 		d[1] = byte ttag2type[tagof t];
-		H = 2;
+		o = 2;
 	FrameASCII =>
 		d[0] = byte ':';
 		s := array of byte sys->sprint("%2X", t.addr);
@@ -280,84 +328,99 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 		s = array of byte sys->sprint("%2X", ttag2type[tagof t]);
 		d[3] = s[0];
 		d[4] = s[1];
-		H = 5;
+		o = 5;
 	FrameTCP =>
 		p16(d, 4, ds - headersize(t.frame) + BIT8SZ);
 		d[6] = byte t.addr;
 		d[7] = byte ttag2type[tagof t];
-		H = 8;
+		o = 8;
 	* =>
 		return nil;
 	}
 	pick m := t {
 	Readcoils =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
+		o += BIT16SZ+BIT16SZ;
 	Readdiscreteinputs =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
+		o += BIT16SZ+BIT16SZ;
 	Readholdingregisters =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
+		o += BIT16SZ+BIT16SZ;
 	Readinputregisters =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
+		o += BIT16SZ+BIT16SZ;
 	Writecoil =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.value);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.value);
+		o += BIT16SZ+BIT16SZ;
 	Writeregister =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.value);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.value);
+		o += BIT16SZ+BIT16SZ;
 	Readexception =>
 		;
 	Diagnostics =>
-		p16(d, H, m.subf);
-		p16(d, H+BIT16SZ, m.data);
+		p16(d, o, m.subf);
+		p16(d, o+BIT16SZ, m.data);
+		o += BIT16SZ+BIT16SZ;
 	Commeventcounter =>
 		;
 	Commeventlog =>
 		;
 	Writecoils =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
-		d[H+BIT16SZ+BIT16SZ] = byte m.count;
-		d[H+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
+		d[o+BIT16SZ+BIT16SZ] = byte m.count;
+		d[o+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
+		o += BIT16SZ+BIT16SZ+BIT8SZ+m.count;
 	Writeregisters =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
-		d[H+BIT16SZ+BIT16SZ] = byte m.count;
-		d[H+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
+		d[o+BIT16SZ+BIT16SZ] = byte m.count;
+		d[o+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
+		o += BIT16SZ+BIT16SZ+BIT8SZ+m.count;
 	Slaveid =>
 		;
 	Readfilerecord =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Writefilerecord =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Maskwriteregister =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.andmask);
-		p16(d, H+BIT16SZ+BIT16SZ, m.ormask);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.andmask);
+		p16(d, o+BIT16SZ+BIT16SZ, m.ormask);
+		o += BIT16SZ+BIT16SZ+BIT16SZ;
 	Rwregisters =>
-		p16(d, H, m.roffset);
-		p16(d, H+BIT16SZ, m.rquantity);
-		p16(d, H+BIT16SZ+BIT16SZ, m.woffset);
-		p16(d, H+BIT16SZ+BIT16SZ+BIT16SZ, m.wquantity);
-		d[H+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ] = byte m.count;
-		d[H+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
+		p16(d, o, m.roffset);
+		p16(d, o+BIT16SZ, m.rquantity);
+		p16(d, o+BIT16SZ+BIT16SZ, m.woffset);
+		p16(d, o+BIT16SZ+BIT16SZ+BIT16SZ, m.wquantity);
+		d[o+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ] = byte m.count;
+		d[o+BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ:] = m.data;
+		o += BIT16SZ+BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ+m.count;
 	Readfifo =>
-		p16(d, H, m.offset);
+		p16(d, o, m.offset);
+		o += BIT16SZ;
 	Encapsulatedtransport =>
-		d[H] = m.meitype;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = m.meitype;
+		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+BIT8SZ;
 	* =>
 		return nil;
 	}
 	
 	case t.frame {
 	FrameRTU =>
-		t.check = rtucrc(d[0], d[1:ds-2]);
+		t.check = rtucrc(d[0], d[1:o]);
 		d[ds-2] = byte(t.check);
 		d[ds-1] = byte(t.check >> 8);
 	FrameASCII =>
@@ -383,8 +446,11 @@ TMmsg.unpack(b: array of byte, h: int): (int, ref TMmsg)
 		return (o, ref TMmsg.Readerror(FrameError, addr, -1, "Invalid address"));
 
 	(mtype, p) := functiontype(b, h);
+	if(mtype == -1)
+		return (0, nil);
 	if(mtype >= Tmax || mtype < Treadcoils)
-		return (p, ref TMmsg.Readerror(FrameError, addr, -1, "Invalid function"));
+		return (p, ref TMmsg.Readerror(FrameError, addr, -1, 
+					sys->sprint("Invalid function (%0X)", mtype)));
 	
 	H := headersize(h);
 	checksz := errorchecksize(h);
@@ -755,8 +821,11 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 		return (o, ref RMmsg.Readerror(FrameError, addr, -1, "Invalid address"));
 
 	(mtype, o) = functiontype(b, h);
-	if(mtype >= Tmax || mtype < Treadcoils)
-		return (o, ref RMmsg.Readerror(FrameError, addr, -1, "Invalid function"));
+	if(mtype == -1)
+		return (0, nil);
+	if((mtype >= Tmax || mtype < Treadcoils) && !funciserror(mtype))
+		return (o, ref RMmsg.Readerror(FrameError, addr, -1,
+					sys->sprint("Invalid function (%0X)", mtype)));
 
 	if(n < o)
 		return (0, nil);
@@ -765,8 +834,12 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 	m: ref RMmsg;
 	case mtype {
 	* =>
-		if(16r80 < mtype && mtype < Tmax) {
+		sys->fprint(sys->fildes(2), "unpack: %d\n", n);
+		if(funciserror(mtype)) {
+			if(n < o+BIT8SZ)
+				break;
 			m = ref RMmsg.Error(h, addr, 0, b[o], b[o+BIT8SZ]);
+			sys->fprint(sys->fildes(2), "here\n");
 			o += BIT8SZ+BIT8SZ;
 		} else
 			return (o, ref RMmsg.Readerror(FrameError, addr, -1,
@@ -898,7 +971,7 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 	Tencapsulatedtransport =>
 		;		# not supported
 	}
-	if(m != nil && n < o+checksz) {
+	if(m != nil && n <= o+checksz) {
 		case m.frame {
 		FrameRTU =>
 			m.check = g16(b, o);
@@ -949,7 +1022,7 @@ RMmsg.text(t: self ref RMmsg): string
 	return "RMmsg."+rmsgname[tagof t];
 }
 
-readmsg(fd: ref Sys->FD, msglim: int): (array of byte, string)
+readmsg(nil: ref Sys->FD, nil: int): (array of byte, string)
 {
 	sys->werrstr("readmsg unimplemented");
 	return (nil, sys->sprint("%r"));
