@@ -210,7 +210,7 @@ headersize(f: int): int
 	case f {
 	FrameRTU => sz = BIT8SZ;							# address
 	FrameASCII => sz = BIT8SZ+BIT16SZ;					# :address
-	FrameTCP => sz = BIT16SZ+BIT16SZ+BIT16SZ;			# ?? 00 address
+	FrameTCP => sz = BIT16SZ+BIT16SZ+BIT16SZ+BIT8SZ;	# ?? 00 address
 	}
 	return sz;
 }
@@ -341,6 +341,9 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 		return nil;
 	}
 	pick m := t {
+	Error =>
+		d[o-BIT8SZ] = m.fcode;
+		d[o] = m.ecode;
 	Readcoils =>
 		p16(d, o, m.offset);
 		p16(d, o+BIT16SZ, m.quantity);
@@ -708,6 +711,7 @@ RMmsg.packedsize(t: self ref RMmsg): int
 	Encapsulatedtransport =>
 		ml += BIT8SZ+BIT8SZ+len m.data;
 	}
+	ml += errorchecksize(t.frame);
 	return ml;
 }
 
@@ -718,13 +722,13 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 	ds := t.packedsize();
 	if(ds <= 0)
 		return nil;
-	d := array[ds] of byte;
-	H := 0;
+	d := array[ds] of { * => byte 0};
+	o := 0;
 	case t.frame {
 	FrameRTU =>
 		d[0] = byte t.addr;
 		d[1] = byte rtag2type[tagof t];
-		H = 2;
+		o = 2;
 	FrameASCII =>
 		d[0] = byte ':';
 		s := array of byte sys->sprint("%2X", t.addr);
@@ -733,79 +737,80 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 		s = array of byte sys->sprint("%2X", rtag2type[tagof t]);
 		d[3] = s[0];
 		d[4] = s[1];
-		H = 5;
+		o = 5;
 	FrameTCP =>
+		p16(d, 4, ds - headersize(t.frame) + BIT8SZ);
 		d[6] = byte t.addr;
 		d[7] = byte rtag2type[tagof t];
-		H = 8;
+		o = 8;
 	* =>
 		return nil;
 	}
 	pick m := t {
 	Error =>
-		d[H] = m.fcode;
-		d[H+BIT8SZ] = m.ecode;
+		d[o-BIT8SZ] = m.fcode;
+		d[o] = m.ecode;
 	Readcoils =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Readdiscreteinputs =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Readholdingregisters =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Readinputregisters =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Writecoil =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.value);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.value);
 	Writeregister =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.value);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.value);
 	Readexception =>
-		d[H] = m.data;
+		d[o] = m.data;
 	Diagnostics =>
-		p16(d, H, m.subf);
-		p16(d, H+BIT16SZ, m.data);
+		p16(d, o, m.subf);
+		p16(d, o+BIT16SZ, m.data);
 	Commeventcounter =>
-		p16(d, H, m.status);
-		p16(d, H, m.count);
+		p16(d, o, m.status);
+		p16(d, o, m.count);
 	Commeventlog =>
-		d[H] = byte m.count;
-		p16(d, H+BIT8SZ, m.status);
-		p16(d, H+BIT8SZ+BIT16SZ, m.ecount);
-		p16(d, H+BIT8SZ+BIT16SZ+BIT16SZ, m.mcount);
-		d[H+BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ:] = m.data;
+		d[o] = byte m.count;
+		p16(d, o+BIT8SZ, m.status);
+		p16(d, o+BIT8SZ+BIT16SZ, m.ecount);
+		p16(d, o+BIT8SZ+BIT16SZ+BIT16SZ, m.mcount);
+		d[o+BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ:] = m.data;
 	Writecoils =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
 	Writeregisters =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.quantity);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.quantity);
 	Slaveid =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Readfilerecord =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Writefilerecord =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Maskwriteregister =>
-		p16(d, H, m.offset);
-		p16(d, H+BIT16SZ, m.andmask);
-		p16(d, H+BIT16SZ+BIT16SZ, m.ormask);
+		p16(d, o, m.offset);
+		p16(d, o+BIT16SZ, m.andmask);
+		p16(d, o+BIT16SZ+BIT16SZ, m.ormask);
 	Rwregisters =>
-		d[H] = byte m.count;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = byte m.count;
+		d[o+BIT8SZ:] = m.data;
 	Readfifo =>
-		p16(d, H, m.count);
-		p16(d, H+BIT16SZ, m.fcount);
-		d[H+BIT16SZ+BIT16SZ:] = m.data;
+		p16(d, o, m.count);
+		p16(d, o+BIT16SZ, m.fcount);
+		d[o+BIT16SZ+BIT16SZ:] = m.data;
 	Encapsulatedtransport =>
-		d[H] = m.meitype;
-		d[H+BIT8SZ:] = m.data;
+		d[o] = m.meitype;
+		d[o+BIT8SZ:] = m.data;
 	* =>
 		return nil;
 	}
@@ -842,14 +847,15 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 	m: ref RMmsg;
 	case mtype {
 	* =>
-		sys->fprint(sys->fildes(2), "unpack: %d %d\n", n, o);
+		sys->fprint(sys->fildes(2), "unpack: mtype=%0X n=%d o=%d\n", mtype, n, o);
 		if(funciserror(mtype)) {
 			sys->fprint(sys->fildes(2), "%s\n", hexdump(b));
-			if(n < o+BIT8SZ+BIT8SZ)
+			if(n < o+BIT8SZ)
 				break;
-			m = ref RMmsg.Error(h, addr, 0, b[o], b[o+BIT8SZ]);
+			sys->fprint(sys->fildes(2), "o-1: %s\n", hexdump(b[o-1:]));
+			m = ref RMmsg.Error(h, addr, 0, byte mtype, b[o]);
 			sys->fprint(sys->fildes(2), "here\n");
-			o += BIT8SZ+BIT8SZ;
+			o += BIT8SZ;
 		} else
 			return (o, ref RMmsg.Readerror(FrameError, addr, -1,
 					sys->sprint("modbus: RMmsg.unpack: bad type %d\n", mtype)));
@@ -870,6 +876,7 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 			o += len d;
 		}
 	Treadholdingregisters =>
+		sys->fprint(sys->fildes(2), "read holding: o=%d\n", o);
 		c := int b[o];
 		o += BIT8SZ;
 		if(c <= n - o) {
