@@ -506,26 +506,6 @@ readreply(p: ref Port, ms: int): (ref RMmsg, string)
 	return (r, err);
 }
 
-# testing
-timingtest(addr: byte, pdu: array of byte)
-{
-	sys->fprint(stdout, "\n");
-	sys->fprint(stdout, "time crc16: ");
-	start := sys->millisec();
-	for(i:=0; i<1000000; i++)
-		modbus->rtucrc(addr, pdu);
-	stop := sys->millisec();
-	ms := real(stop - start)/1000000.0;
-	sys->fprint(stdout, "%g ms\n", ms);
-
-	sys->fprint(stdout, "time rtucrc_test: ");
-	start = sys->millisec();
-	for(i=0; i<1000000; i++)
-		modbus->rtucrc_test(addr, pdu);
-	stop = sys->millisec();
-	ms = real(stop - start)/1000000.0;
-	sys->fprint(stdout, "%g ms\n", ms);
-}
 
 hexdump(b: array of byte): string
 {

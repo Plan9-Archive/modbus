@@ -243,7 +243,6 @@ Modbus : module
 	
 	funciserror:	fn(f: int): int;
 	
-	rtuunpack:	fn(data: array of byte): (byte, array of byte, int, int, string);
-	rtucrc:		fn(addr: byte, pdu: array of byte): int;
+	rtucrc:		fn(b: array of byte): int;
 	rtucrc_test:		fn(addr: byte, pdu: array of byte): int;
 };

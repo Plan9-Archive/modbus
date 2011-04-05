@@ -344,6 +344,7 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 	Error =>
 		d[o-BIT8SZ] = m.fcode;
 		d[o] = m.ecode;
+		o += BIT8SZ;
 	Readcoils =>
 		p16(d, o, m.offset);
 		p16(d, o+BIT16SZ, m.quantity);
@@ -426,7 +427,7 @@ TMmsg.pack(t: self ref TMmsg): array of byte
 	
 	case t.frame {
 	FrameRTU =>
-		t.check = rtucrc(d[0], d[1:o]);
+		t.check = rtucrc(d[0:o]);
 		d[ds-2] = byte(t.check);
 		d[ds-1] = byte(t.check >> 8);
 	FrameASCII =>
@@ -574,7 +575,7 @@ TMmsg.unpack(b: array of byte, h: int): (int, ref TMmsg)
 		case m.frame {
 		FrameRTU =>
 			m.check = g16(b, o);
-			if(m.check != rtucrc(byte addr, b[1:o]))
+			if(m.check != rtucrc(b[0:o]))
 				m = ref TMmsg.Readerror(m.frame, addr, m.check, "Invalid CRC");
 		FrameASCII =>
 			(m.check, nil) = str->toint(string b[o:o+2], 16);
@@ -750,69 +751,100 @@ RMmsg.pack(t: self ref RMmsg): array of byte
 	Error =>
 		d[o-BIT8SZ] = m.fcode;
 		d[o] = m.ecode;
+		o += BIT8SZ;
 	Readcoils =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Readdiscreteinputs =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Readholdingregisters =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Readinputregisters =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Writecoil =>
 		p16(d, o, m.offset);
 		p16(d, o+BIT16SZ, m.value);
+		o += BIT16SZ+BIT16SZ;
 	Writeregister =>
 		p16(d, o, m.offset);
 		p16(d, o+BIT16SZ, m.value);
+		o += BIT16SZ+BIT16SZ;
 	Readexception =>
 		d[o] = m.data;
+		o += BIT8SZ;
 	Diagnostics =>
 		p16(d, o, m.subf);
 		p16(d, o+BIT16SZ, m.data);
+		o += BIT16SZ+BIT16SZ;
 	Commeventcounter =>
 		p16(d, o, m.status);
 		p16(d, o, m.count);
+		o += BIT16SZ+BIT16SZ;
 	Commeventlog =>
 		d[o] = byte m.count;
 		p16(d, o+BIT8SZ, m.status);
 		p16(d, o+BIT8SZ+BIT16SZ, m.ecount);
 		p16(d, o+BIT8SZ+BIT16SZ+BIT16SZ, m.mcount);
 		d[o+BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ:] = m.data;
+		o += BIT8SZ+BIT16SZ+BIT16SZ+BIT16SZ+len m.data;
 	Writecoils =>
 		p16(d, o, m.offset);
 		p16(d, o+BIT16SZ, m.quantity);
+		o += BIT16SZ+BIT16SZ;
 	Writeregisters =>
 		p16(d, o, m.offset);
 		p16(d, o+BIT16SZ, m.quantity);
+		o += BIT16SZ+BIT16SZ;
 	Slaveid =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Readfilerecord =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Writefilerecord =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Maskwriteregister =>
 		p16(d, o, m.offset);
 		p16(d, o+BIT16SZ, m.andmask);
 		p16(d, o+BIT16SZ+BIT16SZ, m.ormask);
+		o += BIT16SZ+BIT16SZ+BIT16SZ;
 	Rwregisters =>
 		d[o] = byte m.count;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+m.count;
 	Readfifo =>
 		p16(d, o, m.count);
 		p16(d, o+BIT16SZ, m.fcount);
 		d[o+BIT16SZ+BIT16SZ:] = m.data;
+		o += BIT16SZ+BIT16SZ+len m.data;
 	Encapsulatedtransport =>
 		d[o] = m.meitype;
 		d[o+BIT8SZ:] = m.data;
+		o += BIT8SZ+len m.data;
 	* =>
 		return nil;
+	}
+	case t.frame {
+	FrameRTU =>
+		t.check = rtucrc(d[0:o]);
+		d[ds-2] = byte(t.check);
+		d[ds-1] = byte(t.check >> 8);
+	FrameASCII =>
+		t.check = asciilrc(d[1:ds-2]);
+		s := array of byte sys->sprint("%2X", t.check);
+		d[ds-2] = s[0];
+		d[ds-1] = s[1];
 	}
 	return d;
 }
@@ -847,14 +879,11 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 	m: ref RMmsg;
 	case mtype {
 	* =>
-		sys->fprint(sys->fildes(2), "unpack: mtype=%0X n=%d o=%d\n", mtype, n, o);
 		if(funciserror(mtype)) {
 			sys->fprint(sys->fildes(2), "%s\n", hexdump(b));
 			if(n < o+BIT8SZ)
 				break;
-			sys->fprint(sys->fildes(2), "o-1: %s\n", hexdump(b[o-1:]));
 			m = ref RMmsg.Error(h, addr, 0, byte mtype, b[o]);
-			sys->fprint(sys->fildes(2), "here\n");
 			o += BIT8SZ;
 		} else
 			return (o, ref RMmsg.Readerror(FrameError, addr, -1,
@@ -876,7 +905,6 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 			o += len d;
 		}
 	Treadholdingregisters =>
-		sys->fprint(sys->fildes(2), "read holding: o=%d\n", o);
 		c := int b[o];
 		o += BIT8SZ;
 		if(c <= n - o) {
@@ -991,7 +1019,7 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 		case m.frame {
 		FrameRTU =>
 			m.check = g16(b, o);
-			if(m.check != rtucrc(byte addr, b[1:o]))
+			if(m.check != rtucrc(b[0:o]))
 				m = ref RMmsg.Readerror(m.frame, addr, m.check, "Invalid CRC");
 		FrameASCII =>
 			(m.check, nil) = str->toint(string b[o:o+2], 16);
@@ -1057,50 +1085,10 @@ asciilrc(b: array of byte): int
 	return int r;
 }
 
-rtuunpack(data: array of byte): (byte, array of byte, int, int, string)
-{
-	e : string;
-	addr : byte;
-	pdu : array of byte;
-	c : int;
-	n := len data;
-	if(n > 4) {
-		addr = data[0];
-		f := int data[1];
-		if(f > Terror) {		# Modbus error
-			pdu = data[1:3];
-			c = g16(data, 4);
-			if(c != rtucrc(addr, pdu))
-				e = ERR_RTUCRC;
-			n = 5;
-		} else {
-			l := int data[2];
-			if(l+5 > n) {
-				e = ERR_RTUINCOMPLETE;
-				n = 0;
-			} else {
-				pdu = data[1:l+3];
-				c = g16(data, l+3);
-				if(c != rtucrc(addr, pdu))
-					e = ERR_RTUCRC;
-				n = l+5;
-			}
-		}
-	} else
-		e = ERR_RTUINCOMPLETE;
-	return (addr, pdu, c, n, e);
-}
-
-rtucrc(addr: byte, pdu: array of byte): int
+rtucrc(b: array of byte): int
 {
 	crc_state.crc = 16rFFFF;
-	
-	n := len pdu + BIT8SZ;
-	b := array[n] of byte;
-	b[0] = addr;
-	b[1:] = pdu;
-	
-	return crc16(crc_state, b, n);
+	return crc16(crc_state, b, len b);
 }
 
 crc16(crcs : ref CRCstate, buf : array of byte, nb : int) : int
