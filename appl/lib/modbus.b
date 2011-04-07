@@ -1015,7 +1015,7 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 	Tencapsulatedtransport =>
 		;		# not supported
 	}
-	if(m != nil && n <= o+checksz) {
+	if(m != nil && o+checksz <= n) {
 		case m.frame {
 		FrameRTU =>
 			m.check = g16(b, o);
