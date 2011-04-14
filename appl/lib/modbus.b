@@ -921,29 +921,39 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 			o += len d;
 		}
 	Twritecoil =>
-		offset := g16(b, o);
-		v := g16(b, o+BIT16SZ);
-		m = ref RMmsg.Writecoil(h, addr, 0, offset, v);
-		o += BIT16SZ+BIT16SZ;
+		if(n >= o+BIT16SZ+BIT16SZ) {
+			offset := g16(b, o);
+			v := g16(b, o+BIT16SZ);
+			m = ref RMmsg.Writecoil(h, addr, 0, offset, v);
+			o += BIT16SZ+BIT16SZ;
+		}
 	Twriteregister =>
-		offset := g16(b, o);
-		v := g16(b, o+BIT16SZ);
-		m = ref RMmsg.Writeregister(h, addr, 0, offset, v);
-		o += BIT16SZ+BIT16SZ;
+		if(n >= o+BIT16SZ+BIT16SZ) {
+			offset := g16(b, o);
+			v := g16(b, o+BIT16SZ);
+			m = ref RMmsg.Writeregister(h, addr, 0, offset, v);
+			o += BIT16SZ+BIT16SZ;
+		}
 	Treadexception =>
-		d := b[o];
-		m = ref RMmsg.Readexception(h, addr, 0, d);
-		o += BIT8SZ;
+		if(n >= o+BIT8SZ) {
+			d := b[o];
+			m = ref RMmsg.Readexception(h, addr, 0, d);
+			o += BIT8SZ;
+		}
 	Tdiagnostics =>
-		st := g16(b, o);
-		v := g16(b, o+BIT16SZ);
-		m = ref RMmsg.Diagnostics(h, addr, 0, st, v);
-		o += BIT16SZ+BIT16SZ;
+		if(n >= o+BIT16SZ+BIT16SZ) {
+			st := g16(b, o);
+			v := g16(b, o+BIT16SZ);
+			m = ref RMmsg.Diagnostics(h, addr, 0, st, v);
+			o += BIT16SZ+BIT16SZ;
+		}
 	Tcommeventcounter =>
-		st := g16(b, o);
-		c := g16(b, o+BIT16SZ);
-		m = ref RMmsg.Commeventcounter(h, addr, 0, st, c);
-		o += BIT16SZ+BIT16SZ;
+		if(n >= o+BIT16SZ+BIT16SZ) {
+			st := g16(b, o);
+			c := g16(b, o+BIT16SZ);
+			m = ref RMmsg.Commeventcounter(h, addr, 0, st, c);
+			o += BIT16SZ+BIT16SZ;
+		}
 	Tcommeventlog =>
 		c := int b[o];
 		o += BIT8SZ;
@@ -956,15 +966,19 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 			o += BIT16SZ+BIT16SZ+BIT16SZ+c;
 		}
 	Twritecoils =>
-		offset := g16(b, o);
-		q := g16(b, o+BIT16SZ);
-		m = ref RMmsg.Writecoils(h, addr, 0, offset, q);
-		o += BIT16SZ+BIT16SZ;
+		if(n >= o+BIT16SZ+BIT16SZ) {
+			offset := g16(b, o);
+			q := g16(b, o+BIT16SZ);
+			m = ref RMmsg.Writecoils(h, addr, 0, offset, q);
+			o += BIT16SZ+BIT16SZ;
+		}
 	Twriteregisters =>
-		offset := g16(b, o);
-		q := g16(b, o+BIT16SZ);
-		m = ref RMmsg.Writeregisters(h, addr, 0, offset, q);
-		o += BIT16SZ+BIT16SZ;
+		if(n >= o+BIT16SZ+BIT16SZ) {
+			offset := g16(b, o);
+			q := g16(b, o+BIT16SZ);
+			m = ref RMmsg.Writeregisters(h, addr, 0, offset, q);
+			o += BIT16SZ+BIT16SZ;
+		}
 	Tslaveid =>
 		c := int b[o];
 		o += BIT8SZ;
@@ -990,11 +1004,13 @@ RMmsg.unpack(b: array of byte, h: int): (int, ref RMmsg)
 			o += c;
 		}
 	Tmaskwriteregister =>
-		offset := g16(b, o);
-		amask := g16(b, o+BIT16SZ);
-		omask := g16(b, o+BIT16SZ+BIT16SZ);
-		m = ref RMmsg.Maskwriteregister(h, addr, 0, offset, amask, omask);
-		o += BIT16SZ+BIT16SZ+BIT16SZ;
+		if(n >= o+BIT16SZ+BIT16SZ+BIT16SZ) {
+			offset := g16(b, o);
+			amask := g16(b, o+BIT16SZ);
+			omask := g16(b, o+BIT16SZ+BIT16SZ);
+			m = ref RMmsg.Maskwriteregister(h, addr, 0, offset, amask, omask);
+			o += BIT16SZ+BIT16SZ+BIT16SZ;
+		}
 	Trwregisters =>
 		c := int b[o];
 		o += BIT8SZ;
