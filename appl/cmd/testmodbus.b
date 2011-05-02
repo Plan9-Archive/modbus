@@ -82,10 +82,11 @@ init(nil: ref Draw->Context, argv: list of string)
 	frame := Modbus->FrameRTU;
 	path := "tcp!iolan!exactus";
 	skip := 0;
+	tpyro := 0;
 	
 	arg := load Arg Arg->PATH;
 	arg->init(argv);
-	arg->setusage(arg->progname()+" [-d] [-f frame] [-s] [path]");
+	arg->setusage(arg->progname()+" [-d] [-f frame] [-p] [-s] [path]");
 	while((c := arg->opt()) != 0)
 		case c {
 		'd' =>	dflag++;
@@ -95,6 +96,7 @@ init(nil: ref Draw->Context, argv: list of string)
 			"ASCII" => frame = Modbus->FrameASCII;
 			"TCP" => frame = Modbus->FrameTCP;
 			}
+		'p' => tpyro++;
 		's' => skip++;
 		* =>	arg->usage();
 		}
@@ -111,7 +113,7 @@ init(nil: ref Draw->Context, argv: list of string)
 		}
 	}
 
-	if(path == "tcp!iolan!exactus") {
+	if(path == "tcp!iolan!exactus" || tpyro) {
 		sys->sleep(125);
 		purge(port);
 		exactus();
