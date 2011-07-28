@@ -1,10 +1,212 @@
 .TH MODBUS 2
 .SH NAME
+modbus \- Modbus protocol
 .SH SYNOPSIS
+.EX
+include "modbus.m";
+modbus: Modbus;
+	TMmsg, RMmsg: import modbus;
+modbus = load Modbus Modbus->PATH;
+modbus->init();
+
+TMmsg: adt {
+	frame: int;
+	addr: int;							# 1 or 2 bytes
+	check: int;							# 0 or 2 bytes
+	pick {
+	Readerror =>
+		error: string;
+	Error =>
+		fcode: byte;
+		ecode: byte;
+	Readcoils =>
+		offset:	int;					# 2	bytes, 0x0000 to 0xFFFF
+		quantity: int;					# 2 bytes, 0x0001 to 0x07D0
+	Readdiscreteinputs =>
+		offset: int;
+		quantity: int;
+	Readholdingregisters =>
+		offset: int;
+		quantity: int;					# 2 bytes, 0x0001 to 0x007D
+	Readinputregisters =>
+		offset: int;
+		quantity: int;					# 2 bytes, 0x0001 to 0x007D
+	Writecoil =>
+		offset: int;
+		value: int;						# 2 bytes 0x0000 or 0xFF00
+	Writeregister =>
+		offset: int;
+		value: int;						# 2 bytes 0x0000 to 0xFFFF
+	Readexception =>
+		s: string;						# not used
+	Diagnostics =>
+		subf: int;						# 2 bytes, sub-function type
+		data: int;						# 2 bytes
+	Commeventcounter =>
+		s: string;						# not used
+	Commeventlog =>
+		s: string;						# not used
+	Writecoils =>
+		offset: int;
+		quantity: int;
+		count: int;
+		data: array of byte;
+	Writeregisters =>
+		offset: int;
+		quantity: int;					# 2 bytes, 0x0001 to 0x007B
+		count:	int;					# 1 byte
+		data: array of byte;
+	Slaveid =>
+		s: string;						# not used
+	Readfilerecord =>
+		count: int;						# 1 byte, 0x07 to 0xF5
+		data: array of byte;
+	Writefilerecord =>
+		count: int;						# 1 byte, 0x09 to 0xFB
+		data: array of byte;
+	Maskwriteregister =>
+		offset: int;					# 2 bytes
+		andmask: int;					# 2 bytes
+		ormask: int;					# 2 bytes
+	Rwregisters =>
+		roffset: int;					# 2 bytes
+		rquantity: int;					# 2 bytes
+		woffset: int;					# 2 bytes
+		wquantity: int;					# 2 bytes
+		count:	int;					# 1 byte
+		data:	array of byte;				# 2 * count
+	Readfifo =>
+		offset: int;
+	Encapsulatedtransport =>
+		meitype: byte;
+		data: array of byte;
+	}
+	
+	read:       fn(fd: ref Sys->FD, msglim: int): ref TMmsg;
+	packedsize: fn(nil: self ref TMmsg): int;
+	pack:       fn(nil: self ref TMmsg): array of byte;
+	unpack:     fn(b: array of byte, h: int): (int, ref TMmsg);
+	text:       fn(nil: self ref TMmsg): string;
+	mtype:      fn(nil: self ref TMmsg): int;
+};
+
+RMmsg: adt {
+	frame: int;
+	addr: int;
+	check: int;
+	pick {
+	Readerror =>
+		error: string;
+	Error =>
+		fcode: byte;
+		ecode: byte;
+	Readcoils =>
+		count: int;
+		data: array of byte;			# coil status
+	Readdiscreteinputs =>
+		count: int;
+		data: array of byte;			# inputs
+	Readholdingregisters =>
+		count: int;
+		data: array of byte;			# registers, N (of N/2 words)
+	Readinputregisters =>
+		count: int;
+		data: array of byte;			# input registers, N (of N/2 words)
+	Writecoil =>
+		offset: int;
+		value: int;
+	Writeregister =>
+		offset: int;
+		value: int;
+	Readexception =>
+		data: byte;
+	Diagnostics =>
+		subf: int;						# 2 bytes, sub-function type
+		data: int;
+	Commeventcounter =>
+		status: int;					# 2 bytes
+		count: int;						# 2 bytes
+	Commeventlog =>
+		count: int;						# 1 byte
+		status: int;					# 2 bytes
+		ecount: int;					# 2 bytes
+		mcount: int;					# 2 bytes
+		data: array of byte;			# events: (N-6) * byte
+	Writecoils =>
+		offset: int;
+		quantity: int;					# 2 bytes, 0x0001 to 0x07B0
+	Writeregisters =>
+		offset: int;
+		quantity: int;
+	Slaveid =>
+		count: int;
+		data: array of byte;			# device specific
+	Readfilerecord =>
+		count: int;						# 1 byte, 0x07 to 0xF5
+		data: array of byte;
+	Writefilerecord =>
+		count: int;
+		data: array of byte;
+	Maskwriteregister =>
+		offset: int;					# 2 bytes
+		andmask: int;					# 2 bytes
+		ormask: int;					# 2 bytes
+	Rwregisters =>
+		count: int;
+		data: array of byte;
+	Readfifo =>
+		count: int;						# 2 bytes
+		fcount: int;					# 2 bytes, ≤31
+		data:	array of byte;
+	Encapsulatedtransport =>
+		meitype: byte;
+		data: array of byte;
+	}
+	
+	read:       fn(fd: ref Sys->FD, msize: int): ref RMmsg;
+	packedsize: fn(nil: self ref RMmsg): int;
+	pack:       fn(nil: self ref RMmsg): array of byte;
+	unpack:     fn(b: array of byte, h: int): (int, ref RMmsg);
+	text:       fn(nil: self ref RMmsg): string;
+	mtype:      fn(nil: self ref RMmsg): int;
+};
+.EE
 .SH DESCRIPTION
-.SH OPTIONS
-.SH FILES
+The
+.I Modbus
+module provides an interface for reading and writing Modbus messages.  The
+module does not provide a reader as that will be a requirement for the
+application developer.  It does provide all the functions necessary to
+encode and decode Modbus messages from arrays of bytes.  The
+.IR exactus (2)
+module implements a reader that uses the Modbus protocol.
+.PP
+The data types for encapsulating Modbus messages are
+.B TMmsg
+for transmitting request messages to a server and
+.B RMmsg
+to handle the response message.  End user programs will need to target the
+specific coils and registers for the device in question.  For example:
+.PP
+.EX
+m := ref TMmsg.Readholdingregisters(Modbus->FrameRTU, p.maddr, -1, 16r1305, 16r0009);
+write(fd, m.pack());
+.EE
+.PP
+will send a request to read the Modbus holding registers in RTU mode to the
+Exactus pyrometer connected on
+.IR fd .
+The request is for nine bytes of data representing the device serial number.
+.PP
+The
+.B RMmsg->unpack()
+function is used to decode an array of bytes.  On success it will return a
+valid
+.BR RMmsg .
+
 .SH SOURCE
-.SH "SEE ALSO"
+.B appl/lib/modbus.b
+.br
+.B appl/cmd/testmodbus.b
 .SH BUGS
 Not enough time in 3.5 characters to mention them all.
