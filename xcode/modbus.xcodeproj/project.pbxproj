@@ -21,12 +21,14 @@
 		411C4567133026E600A1C6DE /* mkfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkfile; sourceTree = "<group>"; };
 		411C4568133026E600A1C6DE /* mkmod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mkmod; sourceTree = "<group>"; };
 		411C4569133026E600A1C6DE /* modbus.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.limbo; lineEnding = 0; path = modbus.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
+		41B6C9651455B92B004F364F /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; name = LICENSE.txt; path = ../LICENSE.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		41120B0812F8BF8200576FF7 = {
 			isa = PBXGroup;
 			children = (
+				41B6C9651455B92B004F364F /* LICENSE.txt */,
 				411C4557133026E600A1C6DE /* appl */,
 				411C4561133026E600A1C6DE /* man */,
 				411C4566133026E600A1C6DE /* module */,
@@ -117,6 +119,9 @@
 /* Begin PBXProject section */
 		41120B0A12F8BF8200576FF7 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = 41120B0D12F8BF8200576FF7 /* Build configuration list for PBXProject "modbus" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
